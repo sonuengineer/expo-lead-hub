@@ -222,6 +222,7 @@ export function UsersPage() {
                 >
                   <option value="STAFF">Staff</option>
                   <option value="ADMIN">Admin</option>
+                  <option value="SUPER_ADMIN">Super Admin</option>
                 </select>
               </div>
               <div className="flex justify-end gap-2 pt-2">

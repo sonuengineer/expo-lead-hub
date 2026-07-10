@@ -15,7 +15,7 @@ router.use(authenticate);
 const createUserSchema = z.object({
   email: z.string().email("Invalid email format"),
   name: z.string().min(2, "Name must be at least 2 characters"),
-  role: z.enum(["ADMIN", "STAFF"]).default("STAFF"),
+  role: z.enum(["SUPER_ADMIN", "ADMIN", "STAFF"]).default("STAFF"),
 });
 
 const updateUserSchema = z.object({
