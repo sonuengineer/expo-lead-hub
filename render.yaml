@@ -1,0 +1,32 @@
+# Render Blueprint for the Exhibition Lead Capture backend (Express + Prisma).
+# Deploy: Render Dashboard → New → Blueprint → pick this repo. Then set the
+# secret env vars (DATABASE_URL, DIRECT_URL, CORS_ORIGIN) in the dashboard.
+services:
+  - type: web
+    name: elc-backend
+    runtime: node
+    plan: free                 # free tier sleeps after ~15 min idle (cold start ~40s)
+    region: singapore          # closest Render region to the ap-southeast-2 Supabase DB
+    # Install ALL deps (tsx + prisma CLI are devDependencies) and generate the
+    # Prisma client for Render's Linux engine.
+    buildCommand: corepack enable && pnpm install --prod=false && pnpm --filter @elc/shared build && pnpm --filter @elc/db generate
+    # Run via tsx (the monorepo links workspace packages as TS source).
+    startCommand: pnpm --filter @elc/backend exec tsx src/index.ts
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true    # Render generates a strong secret
+      - key: JWT_ACCESS_EXPIRY
+        value: 15m
+      - key: JWT_REFRESH_EXPIRY
+        value: 7d
+      # Set these three in the Render dashboard (marked secret):
+      - key: DATABASE_URL
+        sync: false            # Supabase pooler URL (6543, pgbouncer, schema=elc)
+      - key: DIRECT_URL
+        sync: false            # Supabase session pooler URL (5432, schema=elc)
+      - key: CORS_ORIGIN
+        sync: false            # your Vercel frontend URL, e.g. https://elc.vercel.app

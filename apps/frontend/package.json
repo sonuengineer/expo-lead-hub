@@ -1,0 +1,40 @@
+{
+  "name": "@elc/frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@elc/shared": "workspace:*",
+    "@hookform/resolvers": "^5.4.0",
+    "@tanstack/react-query": "^5.62.0",
+    "axios": "^1.7.0",
+    "clsx": "^2.1.0",
+    "lucide-react": "^0.468.0",
+    "qrcode": "^1.5.4",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "react-hook-form": "^7.54.0",
+    "react-hot-toast": "^2.4.0",
+    "react-router-dom": "^7.1.0",
+    "zod": "^3.24.0",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0"
+  }
+}

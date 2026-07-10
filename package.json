@@ -1,0 +1,45 @@
+{
+  "name": "exhibition-lead-capture",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Exhibition Lead Capture Platform — SaaS for collecting leads at exhibitions, trade fairs, and events",
+  "scripts": {
+    "dev": "pnpm --filter @elc/backend dev",
+    "dev:frontend": "pnpm --filter @elc/frontend dev",
+    "dev:all": "pnpm -r --parallel run dev",
+    "build": "pnpm --filter @elc/shared build && pnpm --filter @elc/db build && pnpm --filter @elc/frontend build && pnpm --filter @elc/backend build",
+    "build:frontend": "pnpm --filter @elc/frontend build",
+    "build:backend": "pnpm --filter @elc/backend build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "db:migrate": "pnpm --filter @elc/db migrate",
+    "db:push": "pnpm --filter @elc/db push",
+    "db:seed": "pnpm --filter @elc/db seed",
+    "db:studio": "pnpm --filter @elc/db studio",
+    "db:generate": "pnpm --filter @elc/db generate",
+    "clean": "pnpm -r exec rm -rf dist node_modules",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^10.0.0",
+    "eslint-plugin-react": "^7.37.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "husky": "^9.1.0",
+    "lint-staged": "^15.2.0",
+    "prettier": "^3.4.0",
+    "typescript": "^5.7.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
+}
