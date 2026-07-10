@@ -69,6 +69,13 @@ export function UsersPage() {
     onError: (err: any) => toast.error(err?.response?.data?.message ?? "Failed"),
   });
 
+  const resetMutation = useMutation({
+    mutationFn: (id: string) => api.users.resetPassword(id),
+    onSuccess: (res: any) =>
+      toast.success(`New temporary password: ${res.data?.tempPassword}`, { duration: 12000 }),
+    onError: () => toast.error("Password reset failed"),
+  });
+
   if (!isSuperAdmin) {
     return (
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -135,6 +142,15 @@ export function UsersPage() {
                     <td className="px-4 py-3">
                       {!isSelf && u.role !== "SUPER_ADMIN" && (
                         <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              if (confirm(`Reset password for ${u.name}? A new temporary password will be shown.`))
+                                resetMutation.mutate(u.id);
+                            }}
+                            className="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+                          >
+                            Reset pw
+                          </button>
                           {u.isActive ? (
                             <button
                               onClick={() => deactivateMutation.mutate(u.id)}

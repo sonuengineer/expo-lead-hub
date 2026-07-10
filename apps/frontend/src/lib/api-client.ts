@@ -213,5 +213,6 @@ export const api = {
     create: (data: any) => getApiClient().post("/users", data),
     update: (id: string, data: any) => getApiClient().put(`/users/${id}`, data),
     deactivate: (id: string) => getApiClient().post(`/users/${id}/deactivate`),
+    resetPassword: (id: string) => getApiClient().post(`/users/${id}/reset-password`),
   },
 };

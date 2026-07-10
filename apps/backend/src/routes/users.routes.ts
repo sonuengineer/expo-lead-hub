@@ -177,4 +177,32 @@ router.post(
   }),
 );
 
+// ── Reset User Password (SUPER_ADMIN only) ─
+router.post(
+  "/:userId/reset-password",
+  requireRole("SUPER_ADMIN"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = String(req.params.userId);
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new AppError(404, "User not found");
+    }
+
+    // Generate a new temporary password, hashed before storage.
+    const tempPassword = Math.random().toString(36).slice(-12);
+    const passwordHash = await bcrypt.hash(tempPassword, 12);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+
+    res.json({
+      tempPassword,
+      message: "Password reset. Share this new temporary password with the user.",
+    });
+  }),
+);
+
 export { router as usersRouter };
