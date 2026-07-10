@@ -63,7 +63,17 @@ export function OcrScanPage() {
   const booths = eventDetail?.event?.booths ?? [];
   const visitorTypes = eventDetail?.event?.visitorTypes ?? [];
   const form = eventDetail?.event?.formDefinitions?.[0];
-  const activeFields: FormFieldDef[] = (form?.fields ?? []).filter((f: any) => f.isActive !== false);
+
+  // The event-detail endpoint returns the form definition but not its fields,
+  // so fetch them separately (same source the Form Builder uses).
+  const { data: fieldsData } = useQuery({
+    queryKey: ["ocr-form-fields", eventId, form?.id],
+    queryFn: async () => (await api.formFields.list(eventId, form!.id)).data,
+    enabled: !!eventId && !!form?.id,
+  });
+  const activeFields: FormFieldDef[] = (fieldsData?.fields ?? []).filter(
+    (f: any) => f.isActive !== false,
+  );
 
   const ready = eventId && boothId && visitorTypeId;
 
