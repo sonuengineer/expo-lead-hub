@@ -16,14 +16,16 @@ import { useState } from "react";
 import { useAuthStore } from "@/stores/auth.store";
 import clsx from "clsx";
 
+const ADMIN = ["ADMIN", "SUPER_ADMIN"];
+
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/leads", label: "Leads", icon: Users },
   { to: "/scan", label: "Scan Card", icon: ScanLine },
-  { to: "/qr-codes", label: "QR Codes", icon: QrCode },
-  { to: "/forms", label: "Form Builder", icon: FileText },
-  { to: "/sync", label: "Sync", icon: RefreshCw },
-  { to: "/audit", label: "Audit Log", icon: ScrollText },
+  { to: "/qr-codes", label: "QR Codes", icon: QrCode, roles: ADMIN },
+  { to: "/forms", label: "Form Builder", icon: FileText, roles: ADMIN },
+  { to: "/sync", label: "Sync", icon: RefreshCw, roles: ADMIN },
+  { to: "/audit", label: "Audit Log", icon: ScrollText, roles: ADMIN },
   { to: "/users", label: "Users", icon: UserCog, roles: ["SUPER_ADMIN"] },
 ];
 

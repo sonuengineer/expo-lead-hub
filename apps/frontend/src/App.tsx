@@ -20,6 +20,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Blocks direct-URL access to routes above the user's role (defense in depth —
+// the sidebar hides them and the backend also enforces the same roles).
+function RequireRole({ roles, children }: { roles: string[]; children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user);
+  if (!user || !roles.includes(user.role)) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
+const ADMIN = ["ADMIN", "SUPER_ADMIN"];
+
 export default function App() {
   return (
     <>
@@ -37,12 +47,12 @@ export default function App() {
           <Route index element={<DashboardPage />} />
           <Route path="leads" element={<LeadsPage />} />
           <Route path="leads/:id" element={<LeadDetailPage />} />
-          <Route path="qr-codes" element={<QrCodesPage />} />
-          <Route path="forms" element={<FormBuilderPage />} />
           <Route path="scan" element={<OcrScanPage />} />
-          <Route path="sync" element={<SyncPage />} />
-          <Route path="audit" element={<AuditLogPage />} />
-          <Route path="users" element={<UsersPage />} />
+          <Route path="qr-codes" element={<RequireRole roles={ADMIN}><QrCodesPage /></RequireRole>} />
+          <Route path="forms" element={<RequireRole roles={ADMIN}><FormBuilderPage /></RequireRole>} />
+          <Route path="sync" element={<RequireRole roles={ADMIN}><SyncPage /></RequireRole>} />
+          <Route path="audit" element={<RequireRole roles={ADMIN}><AuditLogPage /></RequireRole>} />
+          <Route path="users" element={<RequireRole roles={["SUPER_ADMIN"]}><UsersPage /></RequireRole>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
