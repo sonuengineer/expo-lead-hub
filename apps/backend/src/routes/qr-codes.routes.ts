@@ -98,17 +98,25 @@ router.post(
     }
 
     // Generate QR codes for each visitor type
+    const trimmedLabel = label?.trim();
     const generatedQrs = await Promise.all(
       visitorTypeIds.map(async (visitorTypeId) => {
         const shortCode = nanoid(8); // 8-char short code
-        
+        const vtName = visitorTypes.find((vt) => vt.id === visitorTypeId)?.name;
+        // No label → use the visitor-type name. Label + multiple types → "Label - Type".
+        const finalLabel = trimmedLabel
+          ? visitorTypeIds.length === 1
+            ? trimmedLabel
+            : `${trimmedLabel} - ${vtName}`
+          : (vtName ?? null);
+
         return prisma.qrCode.create({
           data: {
             eventId,
             boothId,
             visitorTypeId,
             shortCode,
-            label: visitorTypeIds.length === 1 ? label : `${label} - ${visitorTypes.find((vt) => vt.id === visitorTypeId)?.name}`,
+            label: finalLabel,
             isActive: true,
           },
           include: {
