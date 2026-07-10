@@ -29,6 +29,29 @@ export function normalizeUrl(input: string): string {
   return trimmed;
 }
 
+// Free, keyless screenshot fallback for when PageSpeed Insights is unavailable
+// (no PSI key / quota exhausted). Scores are unknown in this path; the AI still
+// roasts the actual rendered design from the image.
+async function fallbackScreenshot(url: string): Promise<string | undefined> {
+  const services = [
+    `https://image.thum.io/get/width/1280/${url}`,
+    `https://s.wordpress.com/mshots/v1/${encodeURIComponent(url)}?w=1280`,
+  ];
+  for (const shotUrl of services) {
+    try {
+      const { data } = await axios.get<ArrayBuffer>(shotUrl, {
+        responseType: "arraybuffer",
+        timeout: 30000,
+      });
+      const buf = Buffer.from(data);
+      if (buf.length > 3000) return `data:image/jpeg;base64,${buf.toString("base64")}`;
+    } catch {
+      /* try next */
+    }
+  }
+  return undefined;
+}
+
 async function fetchMeta(url: string): Promise<{ title?: string; description?: string }> {
   try {
     const { data: html } = await axios.get<string>(url, {
@@ -85,13 +108,26 @@ class PageSpeedAnalyzer implements PageAnalyzer {
       this.run(url, "desktop"),
     ]);
 
+    const metaData = meta.status === "fulfilled" ? meta.value : {};
+
+    // PageSpeed Insights unavailable (no key / quota) → free screenshot, no scores.
     if (mobile.status !== "fulfilled") {
-      throw new Error("Could not analyze this URL — the site may be unreachable or blocking crawlers.");
+      const shot = await fallbackScreenshot(url);
+      if (!shot) {
+        throw new Error("Could not analyze this URL — the site may be unreachable or blocking crawlers.");
+      }
+      return {
+        url,
+        finalUrl: url,
+        title: metaData.title,
+        description: metaData.description,
+        mobileShot: shot,
+        scores: { performance: null, seo: null, accessibility: null, bestPractices: null },
+      };
     }
 
     const mLhr = mobile.value.lighthouseResult;
     const dLhr = desktop.status === "fulfilled" ? desktop.value.lighthouseResult : undefined;
-    const metaData = meta.status === "fulfilled" ? meta.value : {};
 
     return {
       url,

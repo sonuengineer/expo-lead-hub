@@ -76,7 +76,7 @@ export async function generateRoast(capture: PageCapture): Promise<RoastResult> 
 
   const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
+    model: env.GEMINI_MODEL,
     generationConfig: { responseMimeType: "application/json", temperature: 0.9, maxOutputTokens: 4096 },
   });
 

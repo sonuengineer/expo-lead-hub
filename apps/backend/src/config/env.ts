@@ -11,6 +11,7 @@ const envSchema = z.object({
   ENCRYPTION_KEY: z.string().optional(),
   // AI Experience Hub (all optional — feature is disabled until keys are set)
   GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().default("gemini-3.1-flash-lite"),
   PAGESPEED_API_KEY: z.string().optional(), // optional; PSI works without one at lower rate limits
   DATAFORSEO_LOGIN: z.string().optional(),
   DATAFORSEO_PASSWORD: z.string().optional(),
