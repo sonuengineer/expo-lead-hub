@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://YOUR-BACKEND.onrender.com/api/:path*"
+      "destination": "https://elc-backend-gjfy.onrender.com/api/:path*"
     }
   ]
 }

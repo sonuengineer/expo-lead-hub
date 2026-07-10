@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Exhibition Lead Capture Platform — SaaS for collecting leads at exhibitions, trade fairs, and events",
+  "packageManager": "pnpm@10.34.4",
   "scripts": {
     "dev": "pnpm --filter @elc/backend dev",
     "dev:frontend": "pnpm --filter @elc/frontend dev",

@@ -9,7 +9,7 @@ services:
     region: singapore          # closest Render region to the ap-southeast-2 Supabase DB
     # Install ALL deps (tsx + prisma CLI are devDependencies) and generate the
     # Prisma client for Render's Linux engine.
-    buildCommand: corepack enable && pnpm install --prod=false && pnpm --filter @elc/shared build && pnpm --filter @elc/db generate
+    buildCommand: pnpm install --prod=false && pnpm --filter @elc/shared build && pnpm --filter @elc/db generate
     # Run via tsx (the monorepo links workspace packages as TS source).
     startCommand: pnpm --filter @elc/backend exec tsx src/index.ts
     healthCheckPath: /api/health
