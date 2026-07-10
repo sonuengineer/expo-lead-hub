@@ -6,7 +6,7 @@
       "destination": "https://elc-backend-gjfy.onrender.com/api/:path*"
     },
     {
-      "source": "/((?!api/).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
