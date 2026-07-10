@@ -162,6 +162,9 @@ importers:
       react-router-dom:
         specifier: ^7.1.0
         version: 7.18.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      tesseract.js:
+        specifier: ^5.1.1
+        version: 5.1.1
       zod:
         specifier: ^3.24.0
         version: 3.25.76

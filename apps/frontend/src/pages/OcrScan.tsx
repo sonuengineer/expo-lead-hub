@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Camera, ScanLine, Loader2, CheckCircle2, RotateCcw } from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "../lib/api-client";
+import { scanCard } from "../lib/ocr";
 import { useAuthStore } from "../stores/auth.store";
 import { DynamicForm, type FormFieldDef } from "../components/DynamicForm";
 
@@ -45,6 +46,8 @@ export function OcrScanPage() {
   const [scanKey, setScanKey] = useState(0);
   const [showRaw, setShowRaw] = useState(false);
   const [done, setDone] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   const { data: eventsData } = useQuery({
     queryKey: ["events-filter"],
@@ -71,16 +74,27 @@ export function OcrScanPage() {
     setPreview(f ? URL.createObjectURL(f) : "");
   };
 
-  const scanMutation = useMutation({
-    mutationFn: () => api.ocr.scan(file!),
-    onSuccess: (res: any) => {
-      const r = res.data.ocrResult;
-      setScan({ rawText: r.rawText ?? "", confidence: r.confidence ?? 0, parsed: r.parsedData ?? {} });
+  // OCR runs in the browser (Tesseract.js) — no server round-trip, works on the
+  // free tier, and the phone does the heavy lifting.
+  const runScan = async () => {
+    if (!file) return;
+    setScanning(true);
+    setProgress(0);
+    try {
+      const result = await scanCard(file, (p) => setProgress(p));
+      setScan(result);
       setScanKey((k) => k + 1);
-      toast.success("Card scanned — review the details below");
-    },
-    onError: () => toast.error("Scan failed. Try a clearer photo."),
-  });
+      if (!result.rawText.trim()) {
+        toast("No text detected — you can still fill the form manually.", { icon: "✏️" });
+      } else {
+        toast.success("Card scanned — review the details below");
+      }
+    } catch {
+      toast.error("Couldn't read the image. Try again or enter details manually.");
+    } finally {
+      setScanning(false);
+    }
+  };
 
   const submitMutation = useMutation({
     mutationFn: (formData: Record<string, unknown>) =>
@@ -163,13 +177,21 @@ export function OcrScanPage() {
               <div className="mt-4">
                 <img src={preview} alt="card preview" className="max-h-56 w-full rounded-lg object-contain" />
                 <button
-                  onClick={() => scanMutation.mutate()}
-                  disabled={scanMutation.isPending}
+                  onClick={runScan}
+                  disabled={scanning}
                   className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
                 >
-                  {scanMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <ScanLine size={16} />}
-                  {scanMutation.isPending ? "Reading card…" : "Scan card"}
+                  {scanning ? <Loader2 size={16} className="animate-spin" /> : <ScanLine size={16} />}
+                  {scanning ? `Reading card… ${Math.round(progress * 100)}%` : "Scan card"}
                 </button>
+                {scanning && (
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+                    <div
+                      className="h-full rounded-full bg-indigo-500 transition-all"
+                      style={{ width: `${Math.round(progress * 100)}%` }}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
