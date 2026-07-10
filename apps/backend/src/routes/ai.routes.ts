@@ -4,8 +4,8 @@ import { prisma } from "@elc/db";
 import { authenticate } from "../middleware/auth";
 import { AppError } from "../middleware/error-handler";
 import { asyncHandler } from "../utils/async-handler";
-import { getPageAnalyzer, normalizeUrl } from "../services/page-analyzer.service";
-import { generateRoast } from "../services/ai-roast.service";
+import { normalizeUrl } from "../services/page-analyzer.service";
+import { enqueueAnalysis, queueInfo } from "../services/analysis-queue.service";
 
 const router = Router();
 
@@ -26,7 +26,8 @@ const leadSchema = z.object({
   consent: z.boolean().optional(),
 });
 
-// ── POST /api/ai/roast — analyze + roast (staff/booth) ──
+// ── POST /api/ai/roast — queue an analysis (staff/booth) ──
+// Returns immediately with a PENDING record; the client polls GET /analysis/:id.
 router.post(
   "/roast",
   authenticate,
@@ -34,27 +35,24 @@ router.post(
     const { url, eventId, boothId } = roastSchema.parse(req.body);
     const target = normalizeUrl(url);
 
-    const capture = await getPageAnalyzer().analyze(target);
-    const ai = await generateRoast(capture);
-
     const analysis = await prisma.websiteAnalysis.create({
       data: {
-        url: capture.finalUrl,
-        title: capture.title ?? null,
-        description: capture.description ?? null,
-        desktopShot: capture.desktopShot ?? null,
-        mobileShot: capture.mobileShot ?? null,
-        roast: ai.roast as any,
-        audit: { ...ai.audit, lighthouse: capture.scores } as any,
-        suggestions: ai.suggestions as any,
-        status: "COMPLETED",
+        url: target,
+        status: "PENDING",
         eventId: eventId ?? null,
         boothId: boothId ?? null,
         createdBy: req.user?.id ?? null,
       },
     });
 
-    res.status(201).json({ analysis });
+    const info = queueInfo();
+    enqueueAnalysis({ analysisId: analysis.id, url: target });
+
+    res.status(202).json({
+      analysis,
+      // Rough queue position: jobs already waiting/active beyond the concurrency cap.
+      queuePosition: Math.max(0, info.waiting + info.active - info.max + 1),
+    });
   }),
 );
 

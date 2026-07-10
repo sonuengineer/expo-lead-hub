@@ -13,6 +13,8 @@ export function WebsiteRoastPage() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [showLead, setShowLead] = useState(false);
   const [leadSaved, setLeadSaved] = useState(false);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [queuePos, setQueuePos] = useState(0);
   const [lead, setLead] = useState({ name: "", company: "", email: "", phone: "", designation: "", consent: false });
 
   const { data: eventsData } = useQuery({
@@ -39,13 +41,39 @@ export function WebsiteRoastPage() {
     mutationFn: () =>
       api.ai.roast({ url, eventId: eventId || undefined, boothId: boothId || undefined }),
     onSuccess: (res: any) => {
-      setAnalysis(res.data.analysis);
+      setAnalysis(null);
       setLeadSaved(false);
-      toast.success("Roast ready 🔥");
+      setPendingId(res.data.analysis.id);
+      setQueuePos(res.data.queuePosition ?? 0);
     },
     onError: (err: any) =>
       toast.error(err?.response?.data?.message ?? "Could not analyze that site. Check the URL and try again."),
   });
+
+  // Poll the queued job until it's done.
+  const { data: polled } = useQuery({
+    queryKey: ["roast-poll", pendingId],
+    queryFn: async () => (await api.ai.get(pendingId!)).data.analysis as Analysis & { status: string; error?: string },
+    enabled: !!pendingId,
+    refetchInterval: (q: any) => {
+      const s = q.state.data?.status;
+      return s === "COMPLETED" || s === "FAILED" ? false : 3000;
+    },
+  });
+
+  useEffect(() => {
+    if (!polled) return;
+    if (polled.status === "COMPLETED") {
+      setAnalysis(polled);
+      setPendingId(null);
+      toast.success("Roast ready 🔥");
+    } else if (polled.status === "FAILED") {
+      setPendingId(null);
+      toast.error((polled as any).error || "Could not roast that site.");
+    }
+  }, [polled]);
+
+  const busy = roastMutation.isPending || !!pendingId;
 
   const leadMutation = useMutation({
     mutationFn: () =>
@@ -81,7 +109,7 @@ export function WebsiteRoastPage() {
               <input
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && url && roastMutation.mutate()}
+                onKeyDown={(e) => e.key === "Enter" && url && !busy && roastMutation.mutate()}
                 placeholder="https://company.com"
                 className="w-full rounded-lg border border-gray-300 py-2.5 pl-9 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
@@ -103,16 +131,20 @@ export function WebsiteRoastPage() {
           </div>
           <button
             onClick={() => roastMutation.mutate()}
-            disabled={!url || roastMutation.isPending}
+            disabled={!url || busy}
             className="inline-flex items-center gap-2 rounded-lg bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
           >
-            {roastMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Flame size={16} />}
-            {roastMutation.isPending ? "Roasting…" : "🔥 Roast My Website"}
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <Flame size={16} />}
+            {busy ? "Roasting…" : "🔥 Roast My Website"}
           </button>
         </div>
-        {roastMutation.isPending && (
+        {busy && (
           <p className="mt-3 text-sm text-gray-400">
-            Capturing screenshots + running Lighthouse + AI analysis… this can take up to a minute.
+            {polled?.status === "PROCESSING"
+              ? "Capturing the site + AI roast… this can take up to a minute."
+              : queuePos > 0
+                ? `In queue (position ${queuePos})… your roast will start shortly.`
+                : "Queued — starting…"}
           </p>
         )}
       </div>
