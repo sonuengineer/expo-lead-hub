@@ -99,16 +99,6 @@ export function LoginPage() {
             {isLoading ? "Logging in..." : "Login"}
           </button>
         </form>
-
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <p className="text-sm text-gray-600">
-            <strong>Demo Credentials:</strong>
-            <br />
-            Email: <code className="bg-white px-2 py-1 rounded">admin@elc.com</code>
-            <br />
-            Password: <code className="bg-white px-2 py-1 rounded">admin123</code>
-          </p>
-        </div>
       </div>
     </div>
   );

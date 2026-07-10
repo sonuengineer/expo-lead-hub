@@ -7,15 +7,15 @@ async function main() {
   console.log("🌱 Seeding database...");
 
   // ── Create default admin user ──────────
-  const passwordHash = await bcrypt.hash("admin123", 12);
+  const passwordHash = await bcrypt.hash("Rath@123", 12);
 
   const admin = await prisma.user.upsert({
-    where: { email: "admin@elc.com" },
-    update: {},
+    where: { email: "sonu.prajapati@rathinfotech.com" },
+    update: { passwordHash, role: UserRole.SUPER_ADMIN, isActive: true },
     create: {
-      email: "admin@elc.com",
+      email: "sonu.prajapati@rathinfotech.com",
       passwordHash,
-      name: "Super Admin",
+      name: "Sonu Prajapati",
       role: UserRole.SUPER_ADMIN,
     },
   });
@@ -114,7 +114,7 @@ async function main() {
   console.log(`✅ Created form definition with ${defaultFields.length} fields`);
 
   console.log("\n🎉 Seeding complete!");
-  console.log("   Admin login: admin@elc.com / admin123");
+  console.log("   Admin login: sonu.prajapati@rathinfotech.com / Rath@123");
 }
 
 main()
