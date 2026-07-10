@@ -13,6 +13,9 @@ import { SyncPage } from "./pages/Sync";
 import { AuditLogPage } from "./pages/AuditLog";
 import { UsersPage } from "./pages/Users";
 import { PublicLeadForm } from "./pages/PublicLeadForm";
+import { WebsiteRoastPage } from "./pages/WebsiteRoast";
+import { AnalysisHistoryPage } from "./pages/AnalysisHistory";
+import { AnalysisReportPage } from "./pages/AnalysisReport";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -36,6 +39,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/v/:shortCode" element={<PublicLeadForm />} />
+        <Route path="/ai/report/:id" element={<AnalysisReportPage />} />
         <Route
           path="/"
           element={
@@ -48,6 +52,8 @@ export default function App() {
           <Route path="leads" element={<LeadsPage />} />
           <Route path="leads/:id" element={<LeadDetailPage />} />
           <Route path="scan" element={<OcrScanPage />} />
+          <Route path="ai/roast" element={<WebsiteRoastPage />} />
+          <Route path="ai/history" element={<AnalysisHistoryPage />} />
           <Route path="qr-codes" element={<RequireRole roles={ADMIN}><QrCodesPage /></RequireRole>} />
           <Route path="forms" element={<RequireRole roles={ADMIN}><FormBuilderPage /></RequireRole>} />
           <Route path="sync" element={<RequireRole roles={ADMIN}><SyncPage /></RequireRole>} />

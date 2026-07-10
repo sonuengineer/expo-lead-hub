@@ -9,6 +9,11 @@ const envSchema = z.object({
   JWT_REFRESH_EXPIRY: z.string().default("7d"),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
   ENCRYPTION_KEY: z.string().optional(),
+  // AI Experience Hub (all optional — feature is disabled until keys are set)
+  GEMINI_API_KEY: z.string().optional(),
+  PAGESPEED_API_KEY: z.string().optional(), // optional; PSI works without one at lower rate limits
+  DATAFORSEO_LOGIN: z.string().optional(),
+  DATAFORSEO_PASSWORD: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

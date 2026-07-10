@@ -74,6 +74,7 @@ const publicClient = axios.create({ baseURL: API_BASE_URL, timeout: 30000 });
 export const publicApi = {
   getForm: (shortCode: string) => publicClient.get(`/public/v/${shortCode}`),
   submitLead: (data: unknown) => publicClient.post("/public/leads", data),
+  getAnalysis: (id: string) => publicClient.get(`/ai/analysis/${id}`),
 };
 
 // API Methods
@@ -138,6 +139,14 @@ export const api = {
       getApiClient().post(`/events/${eventId}/forms/${formId}/fields/${fieldId}/activate`),
     deactivate: (eventId: string, formId: string, fieldId: string) =>
       getApiClient().post(`/events/${eventId}/forms/${formId}/fields/${fieldId}/deactivate`),
+  },
+
+  // AI Experience Hub
+  ai: {
+    roast: (data: any) => getApiClient().post("/ai/roast", data, { timeout: 120000 }),
+    get: (id: string) => getApiClient().get(`/ai/analysis/${id}`),
+    saveLead: (id: string, data: any) => getApiClient().post(`/ai/analysis/${id}/lead`, data),
+    history: (params?: any) => getApiClient().get("/ai/history", { params }),
   },
 
   // OCR (business card scanning)
