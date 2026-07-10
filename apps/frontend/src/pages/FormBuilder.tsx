@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, Trash2, Plus, Loader2, GripVertical } from "lucide-react";
 import toast from "react-hot-toast";
@@ -30,6 +30,11 @@ export function FormBuilderPage() {
     queryFn: async () => (await api.events.list({ take: 100 })).data,
   });
   const events: { id: string; name: string }[] = eventsData?.events ?? [];
+
+  // Default the Event dropdown to the first available option.
+  useEffect(() => {
+    if (!eventId && events.length) setEventId(events[0]!.id);
+  }, [events, eventId]);
 
   const { data: eventDetail } = useQuery({
     queryKey: ["event-detail", eventId],

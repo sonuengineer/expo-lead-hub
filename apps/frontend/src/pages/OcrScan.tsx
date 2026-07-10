@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Camera, ScanLine, Loader2, CheckCircle2, RotateCcw } from "lucide-react";
 import toast from "react-hot-toast";
@@ -74,6 +74,17 @@ export function OcrScanPage() {
   const activeFields: FormFieldDef[] = (fieldsData?.fields ?? []).filter(
     (f: any) => f.isActive !== false,
   );
+
+  // Auto-select the only/first option so staff don't pick every time.
+  useEffect(() => {
+    if (!eventId && events.length) setEventId(events[0]!.id);
+  }, [events, eventId]);
+  useEffect(() => {
+    if (eventId && !boothId && booths.length) setBoothId(booths[0].id);
+  }, [eventId, booths, boothId]);
+  useEffect(() => {
+    if (eventId && !visitorTypeId && visitorTypes.length) setVisitorTypeId(visitorTypes[0].id);
+  }, [eventId, visitorTypes, visitorTypeId]);
 
   const ready = eventId && boothId && visitorTypeId;
 

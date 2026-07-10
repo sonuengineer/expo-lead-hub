@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { QrCode as QrIcon, Download, Printer, Trash2, Loader2, Plus } from "lucide-react";
 import toast from "react-hot-toast";
@@ -48,6 +48,14 @@ export function QrCodesPage() {
   });
   const booths: Booth[] = eventDetail?.event?.booths ?? [];
   const visitorTypes: VisitorType[] = eventDetail?.event?.visitorTypes ?? [];
+
+  // Default the Event and Booth dropdowns to the first available option.
+  useEffect(() => {
+    if (!eventId && events.length) setEventId(events[0]!.id);
+  }, [events, eventId]);
+  useEffect(() => {
+    if (eventId && !boothId && booths.length) setBoothId(booths[0]!.id);
+  }, [eventId, booths, boothId]);
 
   const { data: qrData, isLoading: qrLoading } = useQuery({
     queryKey: ["qr-codes", eventId, boothId],
@@ -190,6 +198,9 @@ export function QrCodesPage() {
               {qrCodes.map((qr) => {
                 const url = publicUrl(qr.shortCode);
                 const name = qr.label || qr.visitorType?.name || qr.shortCode;
+                // Friendly download filename from the visitor type / label.
+                const fileName =
+                  name.replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "_") || qr.shortCode;
                 return (
                   <div key={qr.id} className="flex flex-col items-center rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
                     <QrImage value={url} size={180} />
@@ -209,10 +220,10 @@ export function QrCodesPage() {
                       </p>
                     </div>
                     <div className="mt-4 flex w-full items-center justify-center gap-1">
-                      <IconBtn title="Download PNG" onClick={() => downloadQrPng(url, qr.shortCode)}>
+                      <IconBtn title="Download PNG" onClick={() => downloadQrPng(url, fileName)}>
                         <Download size={16} />
                       </IconBtn>
-                      <IconBtn title="Download SVG" onClick={() => downloadQrSvg(url, qr.shortCode)}>
+                      <IconBtn title="Download SVG" onClick={() => downloadQrSvg(url, fileName)}>
                         <span className="text-xs font-bold">SVG</span>
                       </IconBtn>
                       <IconBtn title="Print" onClick={() => printQr(url, name)}>
