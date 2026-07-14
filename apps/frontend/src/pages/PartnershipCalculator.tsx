@@ -167,6 +167,16 @@ export function PartnershipCalculator() {
             </div>
           </div>
 
+          {result.retainerTotal > 0 && (
+            <p className="-mt-1 text-sm text-white/50">
+              Recurring:{" "}
+              <b className="text-white/80">
+                {formatCurrency(result.monthlyRetainer)}/mo × {result.durationMonths} ={" "}
+                {formatCurrency(result.retainerTotal)}
+              </b>
+            </p>
+          )}
+
           <div className="mt-auto flex items-center justify-between gap-3">
             <p className="text-sm text-white/50">
               Monthly profit: <b className="text-white/80">{formatCurrency(result.monthlyProfit)}</b>

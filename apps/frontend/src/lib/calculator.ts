@@ -13,13 +13,14 @@ export interface CalcField {
 }
 
 export const CALCULATOR_FIELDS: CalcField[] = [
-  { key: "projectValue", label: "Project Value", type: "currency", demo: 1000000, hint: "Total deal size" },
+  { key: "projectValue", label: "Project Value (one-time)", type: "currency", demo: 1000000, hint: "One-off deal size" },
+  { key: "monthlyRetainer", label: "Monthly Retainer", type: "currency", demo: 0, optional: true, hint: "Recurring fee per month" },
+  { key: "durationMonths", label: "Duration (months)", type: "number", demo: 4, optional: true, hint: "Multiplies the monthly retainer" },
   { key: "partnerSharePct", label: "Partner Share", type: "percent", demo: 30, hint: "% paid to the partner agency" },
   { key: "yourCost", label: "Your Estimated Cost", type: "currency", demo: 200000, hint: "Your delivery cost" },
   { key: "otherExpenses", label: "Other Expenses", type: "currency", demo: 40000, optional: true },
-  { key: "discountPct", label: "Discount Given", type: "percent", demo: 0, optional: true, hint: "% off the project value" },
+  { key: "discountPct", label: "Discount Given", type: "percent", demo: 0, optional: true, hint: "% off total revenue" },
   { key: "overheadPct", label: "Overhead", type: "percent", demo: 6, optional: true, hint: "% of revenue for overhead" },
-  { key: "durationMonths", label: "Project Duration", type: "number", demo: 4, optional: true, hint: "Months" },
   { key: "numProjects", label: "Deals / Year", type: "number", demo: 6, optional: true, hint: "Repeat volume" },
 ];
 
@@ -27,6 +28,9 @@ export type CalcValues = Record<string, number | "">;
 
 export interface CalcResult {
   revenue: number;
+  monthlyRetainer: number;
+  retainerTotal: number; // monthlyRetainer × months
+  durationMonths: number;
   partnerPayment: number;
   yourCost: number;
   otherExpenses: number;
@@ -50,6 +54,7 @@ function n(v: unknown): number {
 
 export function calculate(values: CalcValues): CalcResult {
   const projectValue = n(values.projectValue);
+  const monthlyRetainer = n(values.monthlyRetainer);
   const partnerSharePct = Math.min(100, n(values.partnerSharePct));
   const yourCost = n(values.yourCost);
   const otherExpenses = n(values.otherExpenses);
@@ -58,7 +63,10 @@ export function calculate(values: CalcValues): CalcResult {
   const durationMonths = n(values.durationMonths);
   const numProjects = n(values.numProjects);
 
-  const revenue = projectValue * (1 - discountPct / 100);
+  // Recurring retainer scales by the number of months (e.g. ₹10k × 12 = ₹120k).
+  const retainerTotal = monthlyRetainer * durationMonths;
+  const grossRevenue = projectValue + retainerTotal;
+  const revenue = grossRevenue * (1 - discountPct / 100);
   const partnerPayment = revenue * (partnerSharePct / 100);
   const overhead = revenue * (overheadPct / 100);
   const totalCost = partnerPayment + yourCost + otherExpenses + overhead;
@@ -86,6 +94,9 @@ export function calculate(values: CalcValues): CalcResult {
 
   return {
     revenue,
+    monthlyRetainer,
+    retainerTotal,
+    durationMonths,
     partnerPayment,
     yourCost,
     otherExpenses,
