@@ -24,4 +24,15 @@
   .card {
     @apply rounded-xl border border-gray-200 bg-white p-6 shadow-sm;
   }
+
+  /* ── Booth kiosk (premium glassmorphism) ── */
+  .booth-bg {
+    @apply min-h-screen w-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white;
+  }
+  .glass-card {
+    @apply rounded-3xl border border-white/15 bg-white/10 shadow-2xl backdrop-blur-xl;
+  }
+  .glass-input {
+    @apply w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-4 text-2xl font-semibold text-white placeholder:text-white/30 focus:border-indigo-400 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-indigo-400/40;
+  }
 }

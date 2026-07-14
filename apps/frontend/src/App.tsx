@@ -16,6 +16,8 @@ import { PublicLeadForm } from "./pages/PublicLeadForm";
 import { WebsiteRoastPage } from "./pages/WebsiteRoast";
 import { AnalysisHistoryPage } from "./pages/AnalysisHistory";
 import { AnalysisReportPage } from "./pages/AnalysisReport";
+import { BoothLanding } from "./pages/BoothLanding";
+import { PartnershipCalculator } from "./pages/PartnershipCalculator";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -40,6 +42,8 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/v/:shortCode" element={<PublicLeadForm />} />
         <Route path="/ai/report/:id" element={<AnalysisReportPage />} />
+        <Route path="/booth" element={<BoothLanding />} />
+        <Route path="/booth/calculator" element={<PartnershipCalculator />} />
         <Route
           path="/"
           element={

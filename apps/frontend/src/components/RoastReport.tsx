@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { Play, Pause, RotateCcw, Volume2, Flame, Monitor, Smartphone } from "lucide-react";
+import { ScoreRing, scoreColor } from "./ScoreRing";
 
 export interface Analysis {
   id: string;
@@ -50,43 +51,6 @@ export interface Analysis {
     mobile?: string[];
   } | null;
   createdAt?: string;
-}
-
-function scoreColor(v?: number | null) {
-  if (v == null) return "#94a3b8";
-  if (v >= 90) return "#16a34a";
-  if (v >= 50) return "#f59e0b";
-  return "#dc2626";
-}
-
-function ScoreRing({ label, value }: { label: string; value?: number | null }) {
-  const v = value ?? 0;
-  const r = 26;
-  const c = 2 * Math.PI * r;
-  const dash = (v / 100) * c;
-  const color = scoreColor(value);
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <svg width={64} height={64} viewBox="0 0 64 64">
-        <circle cx={32} cy={32} r={r} fill="none" stroke="#e5e7eb" strokeWidth={6} />
-        <circle
-          cx={32}
-          cy={32}
-          r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth={6}
-          strokeDasharray={`${dash} ${c - dash}`}
-          strokeLinecap="round"
-          transform="rotate(-90 32 32)"
-        />
-        <text x={32} y={32} textAnchor="middle" dominantBaseline="central" fontSize={15} fontWeight={700} fill="#111827">
-          {value == null ? "–" : value}
-        </text>
-      </svg>
-      <span className="text-xs font-medium text-gray-500">{label}</span>
-    </div>
-  );
 }
 
 function useNarration(text: string) {

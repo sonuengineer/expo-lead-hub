@@ -6,6 +6,117 @@ import { AppError } from "../middleware/error-handler";
 
 const router = Router();
 
+// ── GET /booth-context (Public — active event + booth for the kiosk) ──
+router.get(
+  "/booth-context",
+  asyncHandler(async (_req: Request, res: Response) => {
+    const event = await prisma.event.findFirst({
+      where: { status: "ACTIVE" },
+      orderBy: { startDate: "desc" },
+      select: {
+        id: true,
+        name: true,
+        logoUrl: true,
+        bannerImageUrl: true,
+        booths: {
+          where: { isActive: true },
+          orderBy: { createdAt: "asc" },
+          take: 1,
+          select: { id: true, name: true },
+        },
+      },
+    });
+
+    if (!event) {
+      throw new AppError(404, "No active event configured");
+    }
+
+    res.json({
+      event: {
+        id: event.id,
+        name: event.name,
+        logoUrl: event.logoUrl,
+        bannerImageUrl: event.bannerImageUrl,
+      },
+      booth: event.booths[0] ?? null,
+    });
+  }),
+);
+
+// ── POST /booth-lead (Public — optional lead from the calculator) ──
+const boothLeadSchema = z.object({
+  eventId: z.string().uuid().optional(),
+  boothId: z.string().uuid().optional(),
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Valid email required"),
+  company: z.string().optional(),
+  phone: z.string().optional(),
+  designation: z.string().optional(),
+  calculator: z.record(z.any()).optional(),
+});
+
+router.post(
+  "/booth-lead",
+  asyncHandler(async (req: Request, res: Response) => {
+    const data = boothLeadSchema.parse(req.body);
+
+    // Resolve event + booth (fall back to the active event / its first booth).
+    let eventId = data.eventId;
+    let boothId = data.boothId;
+    if (!eventId || !boothId) {
+      const active = await prisma.event.findFirst({
+        where: { status: "ACTIVE" },
+        orderBy: { startDate: "desc" },
+        select: { id: true, booths: { where: { isActive: true }, take: 1, select: { id: true } } },
+      });
+      eventId = eventId ?? active?.id;
+      boothId = boothId ?? active?.booths[0]?.id;
+    }
+    if (!eventId || !boothId) {
+      throw new AppError(400, "No active event/booth to attach this lead to");
+    }
+
+    // Same resolution pattern as ai.routes: first active visitor type + form.
+    const [visitorType, form] = await Promise.all([
+      prisma.visitorType.findFirst({
+        where: { eventId, isActive: true },
+        orderBy: { displayOrder: "asc" },
+      }),
+      prisma.formDefinition.findFirst({ where: { eventId, isActive: true } }),
+    ]);
+    if (!visitorType || !form) {
+      throw new AppError(400, "This event has no active visitor type / form configured");
+    }
+
+    const lead = await prisma.lead.create({
+      data: {
+        eventId,
+        boothId,
+        visitorTypeId: visitorType.id,
+        formDefinitionId: form.id,
+        source: "MANUAL",
+        rawFormData: {
+          contact_person: data.name,
+          company_name: data.company ?? "",
+          email: data.email,
+          mobile_number: data.phone ?? "",
+          designation: data.designation ?? "",
+          _source: "CALCULATOR",
+          _calculator: data.calculator ?? {},
+        } as any,
+        status: "NEW",
+      },
+    });
+
+    await Promise.all([
+      prisma.syncQueue.create({ data: { leadId: lead.id, target: "CRM", status: "PENDING" } }),
+      prisma.syncQueue.create({ data: { leadId: lead.id, target: "GOOGLE_SHEETS", status: "PENDING" } }),
+    ]);
+
+    res.status(201).json({ leadId: lead.id, message: "Saved" });
+  }),
+);
+
 // ── GET /v/:shortCode (Public QR redirect) ────────
 router.get(
   "/v/:shortCode",

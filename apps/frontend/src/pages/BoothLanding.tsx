@@ -1,0 +1,71 @@
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
+import { Calculator, Flame, ArrowRight } from "lucide-react";
+import { publicApi } from "../lib/api-client";
+
+interface BoothContext {
+  event: { id: string; name: string; logoUrl?: string | null };
+  booth: { id: string; name: string } | null;
+}
+
+export function BoothLanding() {
+  const { data } = useQuery({
+    queryKey: ["booth-context"],
+    queryFn: async () => (await publicApi.getBoothContext()).data as BoothContext,
+    retry: false,
+  });
+
+  return (
+    <div className="booth-bg flex flex-col items-center justify-center p-6">
+      {/* Header */}
+      <div className="mb-10 text-center">
+        {data?.event?.logoUrl && (
+          <img src={data.event.logoUrl} alt="" className="mx-auto mb-4 h-16 object-contain" />
+        )}
+        <h1 className="text-4xl font-black tracking-tight sm:text-5xl">
+          {data?.event?.name ?? "Welcome"}
+        </h1>
+        <p className="mt-3 text-lg text-white/60">Pick an experience — takes under a minute.</p>
+      </div>
+
+      {/* Two options */}
+      <div className="grid w-full max-w-4xl grid-cols-1 gap-6 md:grid-cols-2">
+        <Link
+          to="/booth/calculator"
+          className="glass-card group flex flex-col items-start gap-4 p-8 transition-transform duration-200 hover:-translate-y-1 hover:bg-white/15"
+        >
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white shadow-lg">
+            <Calculator size={32} />
+          </div>
+          <h2 className="text-2xl font-bold">Partnership Profitability Calculator</h2>
+          <p className="text-white/60">
+            Enter your deal numbers and instantly see your profit and a partnership score.
+          </p>
+          <span className="mt-auto inline-flex items-center gap-1.5 font-semibold text-emerald-300 group-hover:gap-2.5">
+            Start <ArrowRight size={18} />
+          </span>
+        </Link>
+
+        <Link
+          to="/ai/roast"
+          className="glass-card group flex flex-col items-start gap-4 p-8 transition-transform duration-200 hover:-translate-y-1 hover:bg-white/15"
+        >
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-400 to-rose-500 text-white shadow-lg">
+            <Flame size={32} />
+          </div>
+          <h2 className="text-2xl font-bold">AI Website Roast</h2>
+          <p className="text-white/60">
+            Drop in your website and let our AI roast &amp; audit it — with a full improvement report.
+          </p>
+          <span className="mt-auto inline-flex items-center gap-1.5 font-semibold text-orange-300 group-hover:gap-2.5">
+            Roast it <ArrowRight size={18} />
+          </span>
+        </Link>
+      </div>
+
+      <p className="mt-10 text-sm text-white/30">
+        {data?.booth ? `${data.booth.name} · ` : ""}Powered by Exhibition Lead Capture
+      </p>
+    </div>
+  );
+}

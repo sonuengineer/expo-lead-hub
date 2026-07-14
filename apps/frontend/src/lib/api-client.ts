@@ -75,6 +75,8 @@ export const publicApi = {
   getForm: (shortCode: string) => publicClient.get(`/public/v/${shortCode}`),
   submitLead: (data: unknown) => publicClient.post("/public/leads", data),
   getAnalysis: (id: string) => publicClient.get(`/ai/analysis/${id}`),
+  getBoothContext: () => publicClient.get("/public/booth-context"),
+  saveBoothLead: (data: unknown) => publicClient.post("/public/booth-lead", data),
 };
 
 // API Methods
