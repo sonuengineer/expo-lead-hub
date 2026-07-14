@@ -6,6 +6,7 @@ import { AppError } from "../middleware/error-handler";
 import { asyncHandler } from "../utils/async-handler";
 import { normalizeUrl } from "../services/page-analyzer.service";
 import { enqueueAnalysis, queueInfo } from "../services/analysis-queue.service";
+import { searchBni } from "../services/bni-cache.service";
 
 const router = Router();
 
@@ -102,30 +103,9 @@ router.get(
   "/bni",
   authenticate,
   asyncHandler(async (req: Request, res: Response) => {
-    const q = String(req.query.q ?? "").trim();
-    if (q.length < 2) {
-      res.json({ members: [] });
-      return;
-    }
-    const digits = q.replace(/\D/g, "");
-    const or: any[] = [{ name: { contains: q, mode: "insensitive" } }];
-    if (digits.length >= 4) or.push({ phoneE164: { contains: digits.slice(-10) } });
-
-    const members = await prisma.bniMember.findMany({
-      where: { OR: or },
-      select: {
-        id: true,
-        name: true,
-        company: true,
-        phone: true,
-        phoneE164: true,
-        website: true,
-        chapter: true,
-        region: true,
-      },
-      take: 8,
-      orderBy: { name: "asc" },
-    });
+    // Served from an in-memory cache (see bni-cache.service) so typeahead is
+    // instant and doesn't hit the DB on every keystroke.
+    const members = await searchBni(String(req.query.q ?? ""));
     res.json({ members });
   }),
 );

@@ -146,9 +146,57 @@ class PageSpeedAnalyzer implements PageAnalyzer {
   }
 }
 
+// ── DataForSEO (paid, deeper audit) ───────────
+// Uses the LIVE On-Page "Instant Pages" endpoint (no async polling) for a real
+// on-page score + meta, and keeps the free screenshot for the image. Activated
+// only when DATAFORSEO_LOGIN/PASSWORD are set; falls back to PSI on any error.
+class DataForSeoAnalyzer implements PageAnalyzer {
+  private auth = Buffer.from(`${env.DATAFORSEO_LOGIN}:${env.DATAFORSEO_PASSWORD}`).toString("base64");
+
+  async analyze(url: string): Promise<PageCapture> {
+    try {
+      const { data } = await axios.post(
+        "https://api.dataforseo.com/v3/on_page/instant_pages",
+        [{ url, enable_javascript: true }],
+        {
+          headers: { Authorization: `Basic ${this.auth}`, "Content-Type": "application/json" },
+          timeout: 60000,
+        },
+      );
+      const item = data?.tasks?.[0]?.result?.[0]?.items?.[0];
+      if (!item) throw new Error("DataForSEO returned no page data");
+
+      const meta = item.meta ?? {};
+      const onpage = typeof item.onpage_score === "number" ? Math.round(item.onpage_score) : null;
+      const [shot, metaFallback] = await Promise.all([fallbackScreenshot(url), fetchMeta(url)]);
+
+      return {
+        url,
+        finalUrl: item.url || url,
+        title: meta.title || metaFallback.title,
+        description: meta.description || metaFallback.description,
+        mobileShot: shot,
+        scores: {
+          // DataForSEO's on-page score is an overall quality signal; map to SEO.
+          performance: null,
+          seo: onpage,
+          accessibility: null,
+          bestPractices: null,
+        },
+      };
+    } catch (err) {
+      console.warn("DataForSEO failed, falling back to PageSpeed Insights:", (err as Error).message);
+      return new PageSpeedAnalyzer().analyze(url);
+    }
+  }
+}
+
 // ── Provider factory ──────────────────────────
-// PageSpeed Insights is the free default. A DataForSEO implementation can be
-// dropped in here later (gated on DATAFORSEO_LOGIN/PASSWORD) without touching callers.
+// DataForSEO (paid, deeper) when credentials are set; otherwise the free PSI
+// analyzer. Callers don't change.
 export function getPageAnalyzer(): PageAnalyzer {
+  if (env.DATAFORSEO_LOGIN && env.DATAFORSEO_PASSWORD) {
+    return new DataForSeoAnalyzer();
+  }
   return new PageSpeedAnalyzer();
 }
