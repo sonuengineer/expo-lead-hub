@@ -16,9 +16,9 @@ export interface ScanResult {
   parsed: ParsedCard;
 }
 
-// Shrink a phone photo before OCR — huge images make Tesseract very slow.
+// Shrink a phone photo before OCR — smaller upload + faster processing.
 // Returns a JPEG data URL capped at `maxDim` on the longest side.
-function downscale(file: File, maxDim = 1600): Promise<string> {
+export function downscale(file: File, maxDim = 1600): Promise<string> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();

@@ -155,6 +155,7 @@ export const api = {
 
   // OCR (business card scanning)
   ocr: {
+    smartScan: (image: string) => getApiClient().post("/ocr/smart-scan", { image }, { timeout: 60000 }),
     scan: (imageFile: File) => {
       const fd = new FormData();
       fd.append("image", imageFile);

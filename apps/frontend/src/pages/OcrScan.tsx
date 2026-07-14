@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Camera, ScanLine, Loader2, CheckCircle2, RotateCcw } from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "../lib/api-client";
-import { scanCard } from "../lib/ocr";
+import { downscale } from "../lib/ocr";
 import { useAuthStore } from "../stores/auth.store";
 import { DynamicForm, type FormFieldDef } from "../components/DynamicForm";
 
@@ -47,7 +47,6 @@ export function OcrScanPage() {
   const [showRaw, setShowRaw] = useState(false);
   const [done, setDone] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [progress, setProgress] = useState(0);
 
   const { data: eventsData } = useQuery({
     queryKey: ["events-filter"],
@@ -100,18 +99,27 @@ export function OcrScanPage() {
   const runScan = async () => {
     if (!file) return;
     setScanning(true);
-    setProgress(0);
     try {
-      const result = await scanCard(file, (p) => setProgress(p));
-      setScan(result);
+      // Downscale locally (smaller upload), then read with Gemini vision on the server.
+      const dataUrl = await downscale(file);
+      const res = await api.ocr.smartScan(dataUrl);
+      const a = res.data?.parsed ?? {};
+      const parsed: ParsedData = {
+        companyName: a.companyName || undefined,
+        firstName: a.contactPerson || undefined, // injectOcr builds full name from firstName
+        email: a.email || undefined,
+        phone: a.mobileNumber || undefined,
+        website: a.website || undefined,
+        designation: a.designation || undefined,
+        address: a.address || undefined,
+      };
+      const hasAny = Object.values(parsed).some(Boolean);
+      setScan({ rawText: res.data?.rawText ?? "", confidence: hasAny ? 1 : 0, parsed });
       setScanKey((k) => k + 1);
-      if (!result.rawText.trim()) {
-        toast("No text detected — you can still fill the form manually.", { icon: "✏️" });
-      } else {
-        toast.success("Card scanned — review the details below");
-      }
-    } catch {
-      toast.error("Couldn't read the image. Try again or enter details manually.");
+      if (hasAny) toast.success("Card read — review the details below");
+      else toast("Couldn't read much — fill the form manually.", { icon: "✏️" });
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? "Couldn't read the card. Try a clearer, well-lit photo.");
     } finally {
       setScanning(false);
     }
@@ -203,14 +211,12 @@ export function OcrScanPage() {
                   className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
                 >
                   {scanning ? <Loader2 size={16} className="animate-spin" /> : <ScanLine size={16} />}
-                  {scanning ? `Reading card… ${Math.round(progress * 100)}%` : "Scan card"}
+                  {scanning ? "Reading card…" : "Scan card"}
                 </button>
                 {scanning && (
                   <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
-                    <div
-                      className="h-full rounded-full bg-indigo-500 transition-all"
-                      style={{ width: `${Math.round(progress * 100)}%` }}
-                    />
+                    <div className="h-full w-1/3 rounded-full bg-indigo-500" style={{ animation: "indeterminate 1.4s ease-in-out infinite" }} />
+                    <style>{`@keyframes indeterminate { 0%{margin-left:-33%} 100%{margin-left:100%} }`}</style>
                   </div>
                 )}
               </div>

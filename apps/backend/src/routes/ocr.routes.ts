@@ -6,6 +6,7 @@ import { authenticate, requireRole } from "../middleware/auth";
 import { AppError } from "../middleware/error-handler";
 import { asyncHandler } from "../utils/async-handler";
 import { ocrManager } from "../services/ocr.service";
+import { parseCardWithAI } from "../services/card-parser.service";
 
 const router = Router();
 
@@ -38,6 +39,17 @@ const submitOcrLeadSchema = z.object({
 // All OCR routes require authentication and STAFF+ role
 router.use(authenticate);
 router.use(requireRole("SUPER_ADMIN", "ADMIN", "STAFF"));
+
+// ── POST /api/ocr/smart-scan (Gemini vision — reliable card reading) ──
+const smartScanSchema = z.object({ image: z.string().min(20, "Image is required") });
+router.post(
+  "/smart-scan",
+  asyncHandler(async (req: Request, res: Response) => {
+    const { image } = smartScanSchema.parse(req.body);
+    const { parsed, rawText } = await parseCardWithAI(image);
+    res.json({ parsed, rawText });
+  }),
+);
 
 // ── POST /api/ocr/scan (Upload and OCR image) ──────
 router.post(

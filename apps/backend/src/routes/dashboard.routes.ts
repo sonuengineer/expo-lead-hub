@@ -6,11 +6,20 @@ import { asyncHandler } from "../utils/async-handler";
 const router = Router();
 router.use(authenticate);
 
+// Short-lived cache — the dashboard fires ~12 aggregate queries and the DB is
+// geographically distant, so serve repeat loads from memory for a few seconds.
+let statsCache: { at: number; data: unknown } | null = null;
+const STATS_TTL_MS = 30_000;
+
 // ── GET /api/dashboard/stats ────────────────────────
 // Aggregate KPIs + chart data for the admin dashboard.
 router.get(
   "/stats",
   asyncHandler(async (_req: Request, res: Response) => {
+    if (statsCache && Date.now() - statsCache.at < STATS_TTL_MS) {
+      res.json(statsCache.data);
+      return;
+    }
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const days = 14;
@@ -72,7 +81,7 @@ router.get(
       count,
     }));
 
-    res.json({
+    const payload = {
       kpis: {
         totalLeads,
         todayLeads,
@@ -96,7 +105,10 @@ router.get(
         color: v.color,
         count: v._count.leads,
       })),
-    });
+    };
+
+    statsCache = { at: Date.now(), data: payload };
+    res.json(payload);
   }),
 );
 
