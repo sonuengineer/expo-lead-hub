@@ -17,6 +17,7 @@
     "db:migrate": "pnpm --filter @elc/db migrate",
     "db:push": "pnpm --filter @elc/db push",
     "db:seed": "pnpm --filter @elc/db seed",
+    "db:import-bni": "pnpm --filter @elc/db import-bni",
     "db:studio": "pnpm --filter @elc/db studio",
     "db:generate": "pnpm --filter @elc/db generate",
     "clean": "pnpm -r exec rm -rf dist node_modules",

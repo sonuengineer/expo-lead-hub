@@ -427,26 +427,59 @@ enum AnalysisStatus {
 }
 
 model WebsiteAnalysis {
-  id          String         @id @default(uuid()) @db.Uuid
-  url         String
-  title       String?
-  description String?        @db.Text
-  desktopShot String?        @map("desktop_shot") @db.Text // base64 data URL
-  mobileShot  String?        @map("mobile_shot") @db.Text  // base64 data URL
-  roast       Json?          // { intro, ui, ux, branding, cta, color, typography, mobile }
-  audit       Json?          // { overallScore, sections: [{ key, score, problem, impact, recommendation, priority, improvement }] }
-  suggestions Json?          // { heroHeadline, cta, colorPalette, typography, trustElements, missingSections, conversion, mobile }
-  status      AnalysisStatus @default(PENDING)
-  error       String?        @db.Text
+  id            String         @id @default(uuid()) @db.Uuid
+  url           String
+  competitorUrl String?        @map("competitor_url")
+  company       String?
+  title         String?
+  description   String?        @db.Text
+  desktopShot   String?        @map("desktop_shot") @db.Text // base64 data URL (your site)
+  mobileShot    String?        @map("mobile_shot") @db.Text  // base64 data URL (your site)
+  competitorShot String?       @map("competitor_shot") @db.Text // base64 data URL (competitor)
+  roast         Json?          // legacy (unused by score game)
+  audit         Json?          // { your:{...}, competitor:{...}, verdict:{...}, lighthouse:{...} }
+  suggestions   Json?          // { heroHeadline, cta, colorPalette, trustElements, missingSections, conversion, mobile }
+  status        AnalysisStatus @default(PENDING)
+  error         String?        @db.Text
   // Loose references (no FK relations to keep this module self-contained)
-  eventId     String?        @map("event_id") @db.Uuid
-  boothId     String?        @map("booth_id") @db.Uuid
-  leadId      String?        @map("lead_id") @db.Uuid
-  createdBy   String?        @map("created_by") @db.Uuid
-  createdAt   DateTime       @default(now()) @map("created_at")
-  updatedAt   DateTime       @updatedAt @map("updated_at")
+  eventId     String?          @map("event_id") @db.Uuid
+  boothId     String?          @map("booth_id") @db.Uuid
+  leadId      String?          @map("lead_id") @db.Uuid
+  createdBy   String?          @map("created_by") @db.Uuid
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
 
   @@index([createdAt])
   @@index([eventId])
   @@map("website_analyses")
+}
+
+// ═══════════════════════════════════════════
+// BNI MEMBER DIRECTORY (for the AI Score Game lookup)
+// ═══════════════════════════════════════════
+
+model BniMember {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  company     String?
+  profession  String?
+  phone       String?
+  phoneE164   String?  @map("phone_e164")
+  website     String?
+  chapter     String?
+  region      String?
+  city        String?
+  country     String?
+  status      String?
+  meetingDay  String?  @map("meeting_day")
+  meetingTime String?  @map("meeting_time")
+  venue       String?
+  profileUrl  String?  @map("profile_url")
+  firstSeen   String?  @map("first_seen")
+  lastSeen    String?  @map("last_seen")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([phoneE164])
+  @@index([name])
+  @@map("bni_members")
 }

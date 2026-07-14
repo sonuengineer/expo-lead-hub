@@ -146,6 +146,8 @@ export const api = {
   // AI Experience Hub
   ai: {
     roast: (data: any) => getApiClient().post("/ai/roast", data, { timeout: 120000 }),
+    score: (data: any) => getApiClient().post("/ai/score", data, { timeout: 180000 }),
+    bniLookup: (q: string) => getApiClient().get("/ai/bni", { params: { q } }),
     get: (id: string) => getApiClient().get(`/ai/analysis/${id}`),
     saveLead: (id: string, data: any) => getApiClient().post(`/ai/analysis/${id}/lead`, data),
     history: (params?: any) => getApiClient().get("/ai/history", { params }),

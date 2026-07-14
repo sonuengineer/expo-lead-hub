@@ -8,10 +8,13 @@ interface Row {
   id: string;
   url: string;
   title?: string | null;
-  audit?: { overallScore?: number } | null;
+  audit?: { overallScore?: number; your?: { overallScore?: number } } | null;
   leadId?: string | null;
   createdAt: string;
 }
+
+// Score-game records store the score under audit.your; roast records under audit.overallScore.
+const overallOf = (r: Row) => r.audit?.your?.overallScore ?? r.audit?.overallScore;
 
 function scoreColor(v?: number) {
   if (v == null) return "text-gray-400";
@@ -55,8 +58,8 @@ export function AnalysisHistoryPage() {
                     <div className="font-medium text-gray-900">{r.title || r.url}</div>
                     <div className="text-xs text-gray-400">{r.url}</div>
                   </td>
-                  <td className={`px-4 py-3 font-bold ${scoreColor(r.audit?.overallScore)}`}>
-                    {r.audit?.overallScore ?? "–"}
+                  <td className={`px-4 py-3 font-bold ${scoreColor(overallOf(r))}`}>
+                    {overallOf(r) ?? "–"}
                   </td>
                   <td className="px-4 py-3">
                     {r.leadId ? <UserCheck size={16} className="text-green-600" /> : <span className="text-gray-300">—</span>}

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Calculator, Flame, ArrowRight } from "lucide-react";
+import { Calculator, Gamepad2, ArrowRight } from "lucide-react";
 import { publicApi } from "../lib/api-client";
 
 interface BoothContext {
@@ -47,18 +47,18 @@ export function BoothLanding() {
         </Link>
 
         <Link
-          to="/ai/roast"
+          to="/ai/score"
           className="glass-card group flex flex-col items-start gap-4 p-8 transition-transform duration-200 hover:-translate-y-1 hover:bg-white/15"
         >
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-400 to-rose-500 text-white shadow-lg">
-            <Flame size={32} />
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-400 to-purple-500 text-white shadow-lg">
+            <Gamepad2 size={32} />
           </div>
-          <h2 className="text-2xl font-bold">AI Website Roast</h2>
+          <h2 className="text-2xl font-bold">AI Score Game</h2>
           <p className="text-white/60">
-            Drop in your website and let our AI roast &amp; audit it — with a full improvement report.
+            Your website vs a competitor — get an instant head-to-head score and how to win.
           </p>
-          <span className="mt-auto inline-flex items-center gap-1.5 font-semibold text-orange-300 group-hover:gap-2.5">
-            Roast it <ArrowRight size={18} />
+          <span className="mt-auto inline-flex items-center gap-1.5 font-semibold text-indigo-300 group-hover:gap-2.5">
+            Play <ArrowRight size={18} />
           </span>
         </Link>
       </div>

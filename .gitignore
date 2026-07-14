@@ -42,3 +42,6 @@ packages/db/prisma/migrations/**/migration_lock.toml
 
 # Nested clone of the GitHub repo (not part of the project)
 expo-lead-hub/
+
+# BNI member CSVs — contain PII (names, phone numbers). Imported locally to the DB; not pushed.
+data/

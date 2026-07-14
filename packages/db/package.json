@@ -10,6 +10,7 @@
     "migrate": "prisma migrate dev",
     "push": "prisma db push",
     "seed": "prisma db seed",
+    "import-bni": "tsx prisma/import-bni.ts",
     "studio": "prisma studio",
     "generate": "prisma generate"
   },
@@ -19,7 +20,8 @@
   },
   "dependencies": {
     "@prisma/client": "^6.1.0",
-    "bcryptjs": "^2.4.3"
+    "bcryptjs": "^2.4.3",
+    "csv-parse": "^7.0.1"
   },
   "devDependencies": {
     "prisma": "^6.1.0",

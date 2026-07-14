@@ -14,6 +14,7 @@ import { AuditLogPage } from "./pages/AuditLog";
 import { UsersPage } from "./pages/Users";
 import { PublicLeadForm } from "./pages/PublicLeadForm";
 import { WebsiteRoastPage } from "./pages/WebsiteRoast";
+import { ScoreGamePage } from "./pages/ScoreGame";
 import { AnalysisHistoryPage } from "./pages/AnalysisHistory";
 import { AnalysisReportPage } from "./pages/AnalysisReport";
 import { BoothLanding } from "./pages/BoothLanding";
@@ -56,6 +57,7 @@ export default function App() {
           <Route path="leads" element={<LeadsPage />} />
           <Route path="leads/:id" element={<LeadDetailPage />} />
           <Route path="scan" element={<OcrScanPage />} />
+          <Route path="ai/score" element={<ScoreGamePage />} />
           <Route path="ai/roast" element={<WebsiteRoastPage />} />
           <Route path="ai/history" element={<AnalysisHistoryPage />} />
           <Route path="qr-codes" element={<RequireRole roles={ADMIN}><QrCodesPage /></RequireRole>} />

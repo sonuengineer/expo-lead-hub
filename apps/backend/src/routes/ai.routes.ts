@@ -15,6 +15,16 @@ const roastSchema = z.object({
   boothId: z.string().uuid().optional(),
 });
 
+const scoreSchema = z.object({
+  url: z.string().min(3, "Enter your website URL"),
+  competitorUrl: z.string().min(3, "Enter a competitor URL"),
+  company: z.string().optional(),
+  name: z.string().optional(),
+  phone: z.string().optional(),
+  eventId: z.string().uuid().optional(),
+  boothId: z.string().uuid().optional(),
+});
+
 const leadSchema = z.object({
   eventId: z.string().uuid().optional(),
   boothId: z.string().uuid().optional(),
@@ -53,6 +63,70 @@ router.post(
       // Rough queue position: jobs already waiting/active beyond the concurrency cap.
       queuePosition: Math.max(0, info.waiting + info.active - info.max + 1),
     });
+  }),
+);
+
+// ── POST /api/ai/score — queue a head-to-head comparison (AI Score Game) ──
+router.post(
+  "/score",
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { url, competitorUrl, company, eventId, boothId } = scoreSchema.parse(req.body);
+    const target = normalizeUrl(url);
+    const competitor = normalizeUrl(competitorUrl);
+
+    const analysis = await prisma.websiteAnalysis.create({
+      data: {
+        url: target,
+        competitorUrl: competitor,
+        company: company ?? null,
+        status: "PENDING",
+        eventId: eventId ?? null,
+        boothId: boothId ?? null,
+        createdBy: req.user?.id ?? null,
+      },
+    });
+
+    const info = queueInfo();
+    enqueueAnalysis({ analysisId: analysis.id, url: target, competitorUrl: competitor, company: company ?? undefined });
+
+    res.status(202).json({
+      analysis,
+      queuePosition: Math.max(0, info.waiting + info.active - info.max + 1),
+    });
+  }),
+);
+
+// ── GET /api/ai/bni?q= — BNI member lookup by name or phone ──
+router.get(
+  "/bni",
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const q = String(req.query.q ?? "").trim();
+    if (q.length < 2) {
+      res.json({ members: [] });
+      return;
+    }
+    const digits = q.replace(/\D/g, "");
+    const or: any[] = [{ name: { contains: q, mode: "insensitive" } }];
+    if (digits.length >= 4) or.push({ phoneE164: { contains: digits.slice(-10) } });
+
+    const members = await prisma.bniMember.findMany({
+      where: { OR: or },
+      select: {
+        id: true,
+        name: true,
+        company: true,
+        phone: true,
+        phoneE164: true,
+        website: true,
+        chapter: true,
+        region: true,
+      },
+      take: 8,
+      orderBy: { name: "asc" },
+    });
+    res.json({ members });
   }),
 );
 
@@ -104,8 +178,10 @@ router.post(
           email: data.email,
           mobile_number: data.phone ?? "",
           designation: data.designation ?? "",
-          _source: "AI_ROAST",
+          _source: analysis.competitorUrl ? "SCORE_GAME" : "AI_ROAST",
           _website: analysis.url,
+          _competitorWebsite: analysis.competitorUrl ?? undefined,
+          _company: analysis.company ?? data.company ?? undefined,
           _analysisId: analysis.id,
           _consent: data.consent ?? false,
         } as any,
