@@ -1,9 +1,9 @@
 import { prisma } from "@elc/db";
 import { env } from "../config/env";
-import { getPageAnalyzer, dataForSeoEnabled } from "./page-analyzer.service";
+import { getPageAnalyzer, getLighthouseAnalyzer, dataForSeoEnabled } from "./page-analyzer.service";
 import { generateRoast } from "./ai-roast.service";
 import { generateComparison } from "./ai-score.service";
-import { fetchDomainMetrics } from "./dataforseo.service";
+import { fetchDomainMetrics, fetchCompetitors, type DomainMetrics } from "./dataforseo.service";
 import { emailService } from "./email.service";
 import { reportLink } from "../utils/play-link";
 import type { ComparisonResult } from "./ai-score.service";
@@ -25,28 +25,39 @@ interface Job {
 }
 
 // Email the finished report to the visitor (public play sessions only).
-async function emailReport(job: Job, result: ComparisonResult) {
+async function emailReport(job: Job, result: ComparisonResult, metrics?: DomainMetrics | null) {
   if (!job.email || !emailService.isEmailConfigured()) return;
   const y = result.your?.overallScore ?? "—";
   const c = result.competitor?.overallScore ?? "—";
   const winner =
     result.verdict?.winner === "you" ? "You’re ahead 🎉" : result.verdict?.winner === "competitor" ? "Competitor leads" : "It’s close";
-  const text = [
+  const num = (v: number | null | undefined) => (v == null ? "—" : v.toLocaleString());
+
+  const lines = [
     "Hi,",
     "",
-    "Your AI website comparison is ready:",
+    "Your AI website audit is ready:",
     "",
-    `Your site: ${y}/100`,
-    `Competitor: ${c}/100`,
+    `Overall score — Your site: ${y}/100  |  Competitor: ${c}/100`,
     `Verdict: ${winner}`,
     result.verdict?.reasoning ? `\n${result.verdict.reasoning}` : "",
-    "",
-    `See the full report: ${reportLink(job.analysisId)}`,
-    "",
-    "Rath Infotech and Web Solutions",
-  ].join("\n");
+  ];
+
+  if (metrics && (metrics.da != null || metrics.referringDomains != null || metrics.keywordCount != null)) {
+    lines.push(
+      "",
+      "── Your site's SEO snapshot ──",
+      `Domain Authority: ${num(metrics.da)}   Page Authority: ${num(metrics.pa)}`,
+      `Referring domains: ${num(metrics.referringDomains)}   Backlinks: ${num(metrics.backlinks)}`,
+      `Ranking keywords: ${num(metrics.keywordCount)}   Est. organic traffic: ${num(metrics.organicTraffic)}`,
+    );
+    if (metrics.topKeywords?.length) lines.push(`Top keywords: ${metrics.topKeywords.slice(0, 5).join(", ")}`);
+  }
+
+  lines.push("", `See the full report: ${reportLink(job.analysisId)}`, "", "Rath Infotech and Web Solutions");
+
   await emailService
-    .sendEmail(job.email, "Your AI Website Score is ready", text)
+    .sendEmail(job.email, "Your AI Website Audit is ready", lines.join("\n"))
     .catch((e) => console.error("[score] result email failed:", (e as Error)?.message));
 }
 
@@ -132,19 +143,22 @@ async function runJob(job: Job) {
       const withMetrics = dataForSeoEnabled();
       const has2 = Boolean(job.competitorUrl2);
       const scoredComparison = async () => {
-        const [you, competitor, competitor2, youMetrics, compMetrics, comp2Metrics] = await Promise.all([
-          getPageAnalyzer().analyze(job.url),
-          getPageAnalyzer().analyze(job.competitorUrl!),
-          has2 ? getPageAnalyzer().analyze(job.competitorUrl2!) : Promise.resolve(undefined),
+        const [you, competitor, competitor2, youMetrics, compMetrics, comp2Metrics, competitors] = await Promise.all([
+          // Lighthouse capture (Core Web Vitals + screenshot) for all sites.
+          getLighthouseAnalyzer().analyze(job.url),
+          getLighthouseAnalyzer().analyze(job.competitorUrl!),
+          has2 ? getLighthouseAnalyzer().analyze(job.competitorUrl2!) : Promise.resolve(undefined),
           withMetrics ? fetchDomainMetrics(job.url).catch(() => null) : Promise.resolve(null),
           withMetrics ? fetchDomainMetrics(job.competitorUrl!).catch(() => null) : Promise.resolve(null),
           withMetrics && has2 ? fetchDomainMetrics(job.competitorUrl2!).catch(() => null) : Promise.resolve(null),
+          // Top organic competitors of the visitor's own site (adds depth to the audit).
+          withMetrics ? fetchCompetitors(job.url).catch(() => []) : Promise.resolve([]),
         ]);
         const result = await withRetry(() => generateComparison(you, competitor, competitor2 ?? undefined));
-        return { you, competitor, competitor2, youMetrics, compMetrics, comp2Metrics, result };
+        return { you, competitor, competitor2, youMetrics, compMetrics, comp2Metrics, competitors, result };
       };
 
-      const { you, competitor, competitor2, youMetrics, compMetrics, comp2Metrics, result } = await withDeadline(
+      const { you, competitor, competitor2, youMetrics, compMetrics, comp2Metrics, competitors, result } = await withDeadline(
         scoredComparison(),
         SCORE_DEADLINE_MS,
         "Analysis",
@@ -167,12 +181,13 @@ async function runJob(job: Job) {
           audit: {
             ...result,
             metrics: { your: youMetrics, competitor: compMetrics, competitor2: comp2Metrics },
+            competitors, // top organic competitors of the visitor's site
           } as any,
           suggestions: result.suggestions as any,
         },
       });
       await syncGameResult(job, "COMPLETED");
-      void emailReport(job, result); // fire-and-forget the result email
+      void emailReport(job, result, youMetrics); // fire-and-forget the result email
       return;
     }
 

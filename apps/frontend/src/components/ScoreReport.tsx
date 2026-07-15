@@ -18,6 +18,8 @@ interface DomainMetrics {
   pa?: number | null;
   keywordCount?: number | null;
   organicTraffic?: number | null;
+  referringDomains?: number | null;
+  backlinks?: number | null;
   topKeywords?: string[];
 }
 
@@ -37,6 +39,7 @@ export interface Comparison {
     competitor2?: SiteScore;
     verdict?: { winner?: "you" | "competitor" | "competitor2" | "tie"; perCategory?: Array<{ key: string; youWin: boolean; note: string }>; reasoning?: string };
     metrics?: { your?: DomainMetrics | null; competitor?: DomainMetrics | null; competitor2?: DomainMetrics | null } | null;
+    competitors?: { domain: string; sharedKeywords?: number | null }[] | null;
   } | null;
   suggestions?: {
     heroHeadline?: string;
@@ -84,7 +87,7 @@ function MetricsCol({ title, m, accent }: { title: string; m: DomainMetrics | nu
   const stat = (label: string, val: number | null | undefined) => (
     <div className="flex justify-between text-sm">
       <span className="text-gray-500">{label}</span>
-      <span className={`font-semibold ${accent}`}>{val ?? "–"}</span>
+      <span className={`font-semibold ${accent}`}>{val == null ? "–" : val.toLocaleString()}</span>
     </div>
   );
   return (
@@ -93,6 +96,8 @@ function MetricsCol({ title, m, accent }: { title: string; m: DomainMetrics | nu
       <div className="space-y-1.5">
         {stat("Domain Authority", m?.da)}
         {stat("Page Authority", m?.pa)}
+        {stat("Referring domains", m?.referringDomains)}
+        {stat("Backlinks", m?.backlinks)}
         {stat("Ranking keywords", m?.keywordCount)}
         {stat("Est. organic traffic", m?.organicTraffic)}
       </div>
@@ -142,6 +147,7 @@ export function ScoreReport({ data }: { data: Comparison }) {
   const myMetrics = data.audit?.metrics?.your ?? null;
   const compMetrics = data.audit?.metrics?.competitor ?? null;
   const comp2Metrics = data.audit?.metrics?.competitor2 ?? null;
+  const competitors = data.audit?.competitors ?? [];
 
   return (
     <div className="space-y-6">
@@ -180,6 +186,7 @@ export function ScoreReport({ data }: { data: Comparison }) {
           {(your.llmScore != null || comp.llmScore != null) && <Bar label="LLM" you={your.llmScore} comp={comp.llmScore} />}
           {(lh.performance != null || clh.performance != null) && <Bar label="Performance" you={lh.performance ?? undefined} comp={clh.performance ?? undefined} />}
           {(lh.accessibility != null || clh.accessibility != null) && <Bar label="Accessibility" you={lh.accessibility ?? undefined} comp={clh.accessibility ?? undefined} />}
+          {(lh.bestPractices != null || clh.bestPractices != null) && <Bar label="Best Practices" you={lh.bestPractices ?? undefined} comp={clh.bestPractices ?? undefined} />}
         </div>
         <p className="mt-3 text-center text-xs text-gray-400">UI / UX / Conversion / LLM are AI scores. Performance / Accessibility are Lighthouse (when a PSI key is configured).</p>
       </div>
@@ -194,6 +201,21 @@ export function ScoreReport({ data }: { data: Comparison }) {
             {comp2 && <MetricsCol title={hostOf(data.competitorUrl2) || "Competitor 2"} m={comp2Metrics} accent="text-rose-600" />}
           </div>
           <p className="mt-3 text-center text-xs text-gray-400">DA / PA are DataForSEO domain &amp; page ranks (0–1000). Keywords &amp; traffic are organic estimates.</p>
+        </div>
+      )}
+
+      {/* Top organic competitors (DataForSEO) */}
+      {competitors.length > 0 && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-500">Your top organic competitors</h3>
+          <div className="flex flex-wrap gap-2">
+            {competitors.map((c, i) => (
+              <span key={i} className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5 text-sm">
+                <span className="font-medium text-gray-800">{c.domain}</span>
+                {c.sharedKeywords != null && <span className="text-xs text-gray-500">{c.sharedKeywords} shared</span>}
+              </span>
+            ))}
+          </div>
         </div>
       )}
 

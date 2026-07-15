@@ -27,11 +27,13 @@ export function AuditProgress({
 
   const messages = [
     `Capturing ${host(yourUrl)}…`,
-    `Capturing ${host(competitorUrl)}…`,
-    "Analyzing design & UX…",
+    competitorUrl ? `Capturing ${host(competitorUrl)}…` : "Capturing competitors…",
+    "Measuring domain authority & backlinks…",
+    "Analyzing your ranking keywords…",
+    "Checking speed & Core Web Vitals…",
+    "Scoring design, UX & conversion…",
     "Comparing head-to-head…",
-    "Scoring both sites…",
-    "Almost there…",
+    "Building your report…",
   ];
 
   useEffect(() => {
@@ -40,20 +42,44 @@ export function AuditProgress({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Speak once.
+  // Narrate the audit out loud, line by line, over ~20-30s (queued so each line
+  // plays after the previous). Cancelled when the report is ready (unmount).
   useEffect(() => {
     if (spokeRef.current || !("speechSynthesis" in window)) return;
     spokeRef.current = true;
     const name = company?.trim() ? company.trim() : "there";
-    const u = new SpeechSynthesisUtterance(`Hey ${name}! Your website audit is on the way. Give me a moment while I compare you with your competitor.`);
-    u.rate = 1;
+    const script = [
+      `Hey ${name}. Starting your website audit now.`,
+      "Capturing your site and your competitor.",
+      "Measuring your domain authority and backlinks.",
+      "Analyzing the keywords you rank for.",
+      "Checking your page speed and core web vitals.",
+      "Scoring your design, user experience and conversion.",
+      "Almost there. Putting your report together.",
+    ];
+    let keepAlive: ReturnType<typeof setInterval> | undefined;
     try {
       window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(u);
+      for (const line of script) {
+        const u = new SpeechSynthesisUtterance(line);
+        u.rate = 0.98;
+        u.pitch = 1;
+        window.speechSynthesis.speak(u); // queued — plays in sequence
+      }
+      // Chrome stops speech after ~15s; pause/resume keeps long narration alive.
+      keepAlive = setInterval(() => {
+        if (window.speechSynthesis.speaking) {
+          window.speechSynthesis.pause();
+          window.speechSynthesis.resume();
+        }
+      }, 10000);
     } catch {
       /* ignore */
     }
-    return () => window.speechSynthesis?.cancel();
+    return () => {
+      if (keepAlive) clearInterval(keepAlive);
+      window.speechSynthesis?.cancel();
+    };
   }, [company]);
 
   return (

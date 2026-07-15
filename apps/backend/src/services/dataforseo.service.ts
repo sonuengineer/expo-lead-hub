@@ -10,7 +10,14 @@ export interface DomainMetrics {
   pa: number | null; // page rank 0-1000 for the submitted URL, ~ Page Authority
   keywordCount: number | null; // organic keywords the domain ranks for
   organicTraffic: number | null; // estimated traffic value (etv)
+  referringDomains: number | null; // unique domains linking to this site
+  backlinks: number | null; // total backlinks
   topKeywords: string[]; // a few example ranking keywords
+}
+
+export interface CompetitorLite {
+  domain: string;
+  sharedKeywords: number | null;
 }
 
 const EMPTY: DomainMetrics = {
@@ -18,6 +25,8 @@ const EMPTY: DomainMetrics = {
   pa: null,
   keywordCount: null,
   organicTraffic: null,
+  referringDomains: null,
+  backlinks: null,
   topKeywords: [],
 };
 
@@ -75,8 +84,44 @@ async function fetchKeywordOverview(domain: string): Promise<{ keywordCount: num
   }
 }
 
+// Referring domains + total backlinks via Backlinks summary.
+async function fetchBacklinks(domain: string): Promise<{ referringDomains: number | null; backlinks: number | null }> {
+  try {
+    const data = await post("backlinks/summary/live", [
+      { target: domain, internal_list_limit: 1, backlinks_status_type: "live" },
+    ]);
+    const r = data?.tasks?.[0]?.result?.[0] ?? {};
+    const num = (v: any) => (typeof v === "number" ? v : null);
+    return { referringDomains: num(r.referring_domains), backlinks: num(r.backlinks) };
+  } catch (e) {
+    console.warn("[dataforseo] backlinks summary failed:", (e as Error).message);
+    return { referringDomains: null, backlinks: null };
+  }
+}
+
+// Top organic competitors (by shared keywords) via Labs competitors_domain.
+// Filters out the site itself and obvious non-competitors (social/directories).
+const NON_COMPETITORS = /(facebook|instagram|linkedin|twitter|x|youtube|pinterest|justdial|indiamart|wikipedia|google|amazon)\./i;
+export async function fetchCompetitors(domain: string, limit = 5): Promise<CompetitorLite[]> {
+  if (!env.DATAFORSEO_LOGIN || !env.DATAFORSEO_PASSWORD) return [];
+  try {
+    const data = await post("dataforseo_labs/google/competitors_domain/live", [
+      { target: domain, location_code: env.DATAFORSEO_LOCATION_CODE, language_code: env.DATAFORSEO_LANGUAGE_CODE, limit: limit + 6 },
+    ]);
+    const items: any[] = data?.tasks?.[0]?.result?.[0]?.items ?? [];
+    const self = domain.replace(/^www\./, "");
+    return items
+      .map((i) => ({ domain: String(i?.domain ?? ""), sharedKeywords: typeof i?.intersections === "number" ? i.intersections : null }))
+      .filter((c) => c.domain && c.domain.replace(/^www\./, "") !== self && !NON_COMPETITORS.test(c.domain))
+      .slice(0, limit);
+  } catch (e) {
+    console.warn("[dataforseo] competitors failed:", (e as Error).message);
+    return [];
+  }
+}
+
 // A few example ranking keywords via Labs ranked_keywords.
-async function fetchTopKeywords(domain: string, limit = 5): Promise<string[]> {
+async function fetchTopKeywords(domain: string, limit = 10): Promise<string[]> {
   try {
     const data = await post("dataforseo_labs/google/ranked_keywords/live", [
       {
@@ -101,10 +146,11 @@ async function fetchTopKeywords(domain: string, limit = 5): Promise<string[]> {
 export async function fetchDomainMetrics(url: string): Promise<DomainMetrics> {
   if (!env.DATAFORSEO_LOGIN || !env.DATAFORSEO_PASSWORD) return EMPTY;
   const domain = toDomain(url);
-  const [ranks, overview, topKeywords] = await Promise.all([
+  const [ranks, overview, backlinks, topKeywords] = await Promise.all([
     fetchRanks(domain, url),
     fetchKeywordOverview(domain),
+    fetchBacklinks(domain),
     fetchTopKeywords(domain),
   ]);
-  return { ...ranks, ...overview, topKeywords };
+  return { ...ranks, ...overview, ...backlinks, topKeywords };
 }

@@ -210,6 +210,13 @@ export function getPageAnalyzer(): PageAnalyzer {
   return hasCreds ? new DataForSeoAnalyzer() : new PageSpeedAnalyzer();
 }
 
+// Always the free PageSpeed (Lighthouse) analyzer — used by the Score game so
+// the report always has Core Web Vitals (performance / a11y / best-practices),
+// while DataForSEO supplies the authority/keyword/backlink data separately.
+export function getLighthouseAnalyzer(): PageAnalyzer {
+  return new PageSpeedAnalyzer();
+}
+
 // True when DataForSEO domain metrics (DA/PA/keywords) should be fetched.
 export function dataForSeoEnabled(): boolean {
   return (
