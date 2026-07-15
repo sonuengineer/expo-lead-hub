@@ -12,6 +12,7 @@ import { OcrScanPage } from "./pages/OcrScan";
 import { SyncPage } from "./pages/Sync";
 import { AuditLogPage } from "./pages/AuditLog";
 import { UsersPage } from "./pages/Users";
+import { AutomationPage } from "./pages/Automation";
 import { PublicLeadForm } from "./pages/PublicLeadForm";
 import { WebsiteRoastPage } from "./pages/WebsiteRoast";
 import { ScoreGamePage } from "./pages/ScoreGame";
@@ -64,6 +65,7 @@ export default function App() {
           <Route path="forms" element={<RequireRole roles={ADMIN}><FormBuilderPage /></RequireRole>} />
           <Route path="sync" element={<RequireRole roles={ADMIN}><SyncPage /></RequireRole>} />
           <Route path="audit" element={<RequireRole roles={ADMIN}><AuditLogPage /></RequireRole>} />
+          <Route path="automation" element={<RequireRole roles={ADMIN}><AutomationPage /></RequireRole>} />
           <Route path="users" element={<RequireRole roles={["SUPER_ADMIN"]}><UsersPage /></RequireRole>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

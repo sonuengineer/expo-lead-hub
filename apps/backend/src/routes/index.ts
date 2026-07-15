@@ -9,6 +9,7 @@ import { ocrRouter } from "./ocr.routes";
 import { syncQueueRouter } from "./sync-queue.routes";
 import { aiRouter } from "./ai.routes";
 import { publicRouter } from "./public.routes";
+import { notificationsRouter } from "./notifications.routes";
 
 const apiRouter = Router();
 
@@ -22,5 +23,6 @@ apiRouter.use("/ocr", ocrRouter);
 apiRouter.use("/sync-queue", syncQueueRouter);
 apiRouter.use("/ai", aiRouter);
 apiRouter.use("/public", publicRouter);
+apiRouter.use("/notifications", notificationsRouter);
 
 export { apiRouter };

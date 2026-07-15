@@ -7,6 +7,7 @@ import { AppError } from "../middleware/error-handler";
 import { asyncHandler } from "../utils/async-handler";
 import { ocrManager } from "../services/ocr.service";
 import { parseCardWithAI } from "../services/card-parser.service";
+import { notifyLeadReceived } from "../services/notification.service";
 
 const router = Router();
 
@@ -133,6 +134,9 @@ router.post(
         },
       }),
     ]);
+
+    // WhatsApp: welcome the visitor + send the lead report to the client (non-blocking).
+    void notifyLeadReceived(lead.id).catch(() => {});
 
     // Log audit event
     if (res.locals.logAudit) {

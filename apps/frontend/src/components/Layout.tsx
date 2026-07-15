@@ -8,6 +8,7 @@ import {
   RefreshCw,
   ScrollText,
   UserCog,
+  Workflow,
   Flame,
   Sparkles,
   MonitorPlay,
@@ -34,6 +35,7 @@ const navItems = [
   { to: "/forms", label: "Form Builder", icon: FileText, roles: ADMIN },
   { to: "/sync", label: "Sync", icon: RefreshCw, roles: ADMIN },
   { to: "/audit", label: "Audit Log", icon: ScrollText, roles: ADMIN },
+  { to: "/automation", label: "Automation", icon: Workflow, roles: ADMIN },
   { to: "/users", label: "Users", icon: UserCog, roles: ["SUPER_ADMIN"] },
 ];
 

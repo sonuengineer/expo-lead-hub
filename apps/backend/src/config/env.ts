@@ -16,6 +16,22 @@ const envSchema = z.object({
   PAGESPEED_API_KEY: z.string().optional(), // optional; PSI works without one at lower rate limits
   DATAFORSEO_LOGIN: z.string().optional(),
   DATAFORSEO_PASSWORD: z.string().optional(),
+  // WhatsApp (OpenWA self-hosted gateway) — all optional; feature is disabled
+  // until OPENWA_BASE_URL + OPENWA_API_KEY are set.
+  OPENWA_BASE_URL: z.string().optional(),
+  OPENWA_API_KEY: z.string().optional(),
+  OPENWA_SESSION_ID: z.string().default("default"),
+  // Email — optional; feature disabled until configured.
+  // Preferred: Resend HTTP API (works everywhere, no SMTP ports needed).
+  // Fallback: raw SMTP. EMAIL_FROM applies to both (falls back to SMTP_FROM).
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().optional(),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().default(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
+  SMTP_SECURE: z.coerce.boolean().default(false),
 });
 
 const parsed = envSchema.safeParse(process.env);

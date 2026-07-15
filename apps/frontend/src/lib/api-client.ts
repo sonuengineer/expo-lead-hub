@@ -220,6 +220,18 @@ export const api = {
     list: (params?: any) => getApiClient().get("/audit-logs", { params }),
   },
 
+  // Notifications / Automation
+  notifications: {
+    list: (eventId: string) => getApiClient().get(`/notifications/${eventId}`),
+    create: (data: any) => getApiClient().post("/notifications", data),
+    update: (id: string, data: any) => getApiClient().put(`/notifications/${id}`, data),
+    remove: (id: string) => getApiClient().delete(`/notifications/${id}`),
+    whatsappStatus: () => getApiClient().get("/notifications/whatsapp/status"),
+    whatsappTest: (data: any) => getApiClient().post("/notifications/whatsapp/test", data),
+    emailStatus: () => getApiClient().get("/notifications/email/status"),
+    emailTest: (data: any) => getApiClient().post("/notifications/email/test", data),
+  },
+
   // Users
   users: {
     list: () => getApiClient().get("/users"),

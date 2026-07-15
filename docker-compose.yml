@@ -40,11 +40,37 @@ services:
       JWT_ACCESS_EXPIRY: 15m
       JWT_REFRESH_EXPIRY: 7d
       CORS_ORIGIN: http://localhost:3000
+      OPENWA_BASE_URL: http://openwa:2785
+      OPENWA_API_KEY: ${OPENWA_API_KEY:-}
+      OPENWA_SESSION_ID: ${OPENWA_SESSION_ID:-default}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
       - ./apps/backend/src:/app/src
 
+  # ── OpenWA (self-hosted WhatsApp gateway) ──
+  # Free, MIT-licensed. Create a session + API key via its dashboard at :2785,
+  # then set OPENWA_API_KEY (and OPENWA_SESSION_ID if not "default") in .env.
+  openwa:
+    image: ghcr.io/rmyndharis/openwa:latest
+    container_name: elc-openwa
+    restart: unless-stopped
+    ports:
+      - "2785:2785"
+    environment:
+      ENGINE_TYPE: whatsapp-web.js
+    volumes:
+      - openwa_data:/data
+
 volumes:
   postgres_data:
+  openwa_data:

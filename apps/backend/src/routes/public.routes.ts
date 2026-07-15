@@ -3,8 +3,37 @@ import { z } from "zod";
 import { prisma } from "@elc/db";
 import { asyncHandler } from "../utils/async-handler";
 import { AppError } from "../middleware/error-handler";
+import { TtlCache } from "../utils/cache";
+import { notifyLeadReceived } from "../services/notification.service";
 
 const router = Router();
+
+// Form definitions per event change rarely but are read on every QR scan and
+// lead submission. Cache them briefly to skip a hot Postgres query each time.
+const activeFormInclude = {
+  fields: {
+    where: { isActive: true },
+    orderBy: { displayOrder: "asc" },
+    include: { options: { orderBy: { displayOrder: "asc" } } },
+  },
+} as const;
+
+type ActiveForm = NonNullable<
+  Awaited<ReturnType<typeof prisma.formDefinition.findFirst<{ include: typeof activeFormInclude }>>>
+>;
+
+const formCache = new TtlCache<ActiveForm>(60_000);
+
+async function getActiveForm(eventId: string): Promise<ActiveForm | null> {
+  const cached = formCache.get(eventId);
+  if (cached) return cached;
+  const form = await prisma.formDefinition.findFirst({
+    where: { eventId, isActive: true },
+    include: activeFormInclude,
+  });
+  if (form) formCache.set(eventId, form);
+  return form;
+}
 
 // ── GET /booth-context (Public — active event + booth for the kiosk) ──
 router.get(
@@ -82,7 +111,7 @@ router.post(
         where: { eventId, isActive: true },
         orderBy: { displayOrder: "asc" },
       }),
-      prisma.formDefinition.findFirst({ where: { eventId, isActive: true } }),
+      getActiveForm(eventId),
     ]);
     if (!visitorType || !form) {
       throw new AppError(400, "This event has no active visitor type / form configured");
@@ -113,6 +142,9 @@ router.post(
       prisma.syncQueue.create({ data: { leadId: lead.id, target: "GOOGLE_SHEETS", status: "PENDING" } }),
     ]);
 
+    // WhatsApp: welcome the visitor + send the lead report to the client (non-blocking).
+    void notifyLeadReceived(lead.id).catch(() => {});
+
     res.status(201).json({ leadId: lead.id, message: "Saved" });
   }),
 );
@@ -137,23 +169,13 @@ router.get(
       throw new AppError(404, "QR code not found or inactive");
     }
 
-    // Increment scan count
-    await prisma.qrCode.update({
-      where: { id: qrCode.id },
-      data: { scanCount: { increment: 1 } },
-    });
+    // Scan count is analytics only — don't block the form response on it.
+    void prisma.qrCode
+      .update({ where: { id: qrCode.id }, data: { scanCount: { increment: 1 } } })
+      .catch(() => {});
 
-    // Get form definition for this event
-    const formDefinition = await prisma.formDefinition.findFirst({
-      where: { eventId: qrCode.eventId, isActive: true },
-      include: {
-        fields: {
-          where: { isActive: true },
-          orderBy: { displayOrder: "asc" },
-          include: { options: { orderBy: { displayOrder: "asc" } } },
-        },
-      },
-    });
+    // Form definitions per event are cached (they change rarely).
+    const formDefinition = await getActiveForm(qrCode.eventId);
 
     // Return form data for frontend to render
     res.json({
@@ -190,21 +212,18 @@ router.post(
     const payload = submitLeadSchema.parse(req.body);
     const { qrCodeId, visitorTypeId, boothId, formDefinitionId, eventId, formData } = payload;
 
-    // Verify QR code exists and is active
-    const qrCode = await prisma.qrCode.findUnique({
-      where: { id: qrCodeId },
-    });
+    // Verify QR code and the event's active form in parallel. The form is
+    // served from cache when warm (it rarely changes), saving a round-trip.
+    const [qrCode, form] = await Promise.all([
+      prisma.qrCode.findUnique({ where: { id: qrCodeId } }),
+      getActiveForm(eventId),
+    ]);
 
     if (!qrCode || !qrCode.isActive) {
       throw new AppError(400, "Invalid or inactive QR code");
     }
 
-    // Verify form definition exists and belongs to event
-    const form = await prisma.formDefinition.findFirst({
-      where: { id: formDefinitionId, eventId, isActive: true },
-    });
-
-    if (!form) {
+    if (!form || form.id !== formDefinitionId) {
       throw new AppError(400, "Form not found or inactive");
     }
 
@@ -244,6 +263,9 @@ router.post(
         },
       }),
     ]);
+
+    // WhatsApp: welcome the visitor + send the lead report to the client (non-blocking).
+    void notifyLeadReceived(lead.id).catch(() => {});
 
     res.status(201).json({
       lead,
