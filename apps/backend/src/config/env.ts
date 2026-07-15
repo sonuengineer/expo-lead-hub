@@ -8,6 +8,9 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRY: z.string().default("15m"),
   JWT_REFRESH_EXPIRY: z.string().default("7d"),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
+  // Public base URL of the frontend (used to build visitor "extra links",
+  // e.g. https://booth.example.com/play/<token>). Falls back to CORS_ORIGIN.
+  PUBLIC_APP_URL: z.string().optional(),
   ENCRYPTION_KEY: z.string().optional(),
   // AI Experience Hub (all optional — feature is disabled until keys are set)
   GEMINI_API_KEY: z.string().optional(),
@@ -16,6 +19,14 @@ const envSchema = z.object({
   PAGESPEED_API_KEY: z.string().optional(), // optional; PSI works without one at lower rate limits
   DATAFORSEO_LOGIN: z.string().optional(),
   DATAFORSEO_PASSWORD: z.string().optional(),
+  // Which analyzer to use for the AI Score game:
+  //  - "auto"       → DataForSEO when creds are set, else PageSpeed/Gemini (default)
+  //  - "dataforseo" → force DataForSEO (DA/PA + keywords); errors fall back to PSI
+  //  - "pagespeed"  → force free PageSpeed + Gemini only (no DataForSEO calls)
+  SEO_PROVIDER: z.enum(["auto", "dataforseo", "pagespeed"]).default("auto"),
+  // Market for DataForSEO keyword/rank data (defaults: USA / English).
+  DATAFORSEO_LOCATION_CODE: z.coerce.number().int().default(2840),
+  DATAFORSEO_LANGUAGE_CODE: z.string().default("en"),
   // WhatsApp (OpenWA self-hosted gateway) — all optional; feature is disabled
   // until OPENWA_BASE_URL + OPENWA_API_KEY are set.
   OPENWA_BASE_URL: z.string().optional(),

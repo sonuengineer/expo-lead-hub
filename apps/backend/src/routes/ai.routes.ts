@@ -19,6 +19,7 @@ const roastSchema = z.object({
 const scoreSchema = z.object({
   url: z.string().min(3, "Enter your website URL"),
   competitorUrl: z.string().min(3, "Enter a competitor URL"),
+  competitorUrl2: z.string().optional(),
   company: z.string().optional(),
   name: z.string().optional(),
   phone: z.string().optional(),
@@ -72,14 +73,16 @@ router.post(
   "/score",
   authenticate,
   asyncHandler(async (req: Request, res: Response) => {
-    const { url, competitorUrl, company, eventId, boothId } = scoreSchema.parse(req.body);
+    const { url, competitorUrl, competitorUrl2, company, eventId, boothId } = scoreSchema.parse(req.body);
     const target = normalizeUrl(url);
     const competitor = normalizeUrl(competitorUrl);
+    const competitor2 = competitorUrl2 ? normalizeUrl(competitorUrl2) : undefined;
 
     const analysis = await prisma.websiteAnalysis.create({
       data: {
         url: target,
         competitorUrl: competitor,
+        competitorUrl2: competitor2 ?? null,
         company: company ?? null,
         status: "PENDING",
         eventId: eventId ?? null,
@@ -89,7 +92,7 @@ router.post(
     });
 
     const info = queueInfo();
-    enqueueAnalysis({ analysisId: analysis.id, url: target, competitorUrl: competitor, company: company ?? undefined });
+    enqueueAnalysis({ analysisId: analysis.id, url: target, competitorUrl: competitor, competitorUrl2: competitor2, company: company ?? undefined });
 
     res.status(202).json({
       analysis,

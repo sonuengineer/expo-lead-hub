@@ -1,12 +1,42 @@
 import { Router, Request, Response } from "express";
+import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { prisma } from "@elc/db";
 import { asyncHandler } from "../utils/async-handler";
 import { AppError } from "../middleware/error-handler";
 import { TtlCache } from "../utils/cache";
 import { notifyLeadReceived } from "../services/notification.service";
+import { newPlayToken, playLink } from "../utils/play-link";
+import { searchBni, lookupBniByPhone } from "../services/bni-cache.service";
+import { parseCardWithAI } from "../services/card-parser.service";
+import { normalizeUrl } from "../services/page-analyzer.service";
+import { enqueueAnalysis, queueInfo } from "../services/analysis-queue.service";
+import { computeProfit, inr } from "../services/profit-calc.service";
+import { emailService } from "../services/email.service";
 
 const router = Router();
+
+// The games a visitor can pick from their "extra link". Backend owns the list
+// so availability can be gated later without a frontend change.
+const GAMES = [
+  {
+    type: "AI_SCORE",
+    title: "AI Competitor Analysis",
+    subtitle: "Score your website vs 2 competitors — DA, keywords, AI score & more.",
+    path: "/ai/score",
+  },
+  {
+    type: "PROFIT_CALC",
+    title: "Profitability Calculator",
+    subtitle: "See your agency's profit, costs and margins in seconds.",
+    path: "/booth/calculator",
+  },
+] as const;
+
+// Public endpoints that hit AI (card scan) or scan the directory (BNI lookup)
+// get their own tighter limiter on top of the global one.
+const publicScanLimiter = rateLimit({ windowMs: 60_000, max: 15, standardHeaders: true, legacyHeaders: false });
+const publicLookupLimiter = rateLimit({ windowMs: 60_000, max: 40, standardHeaders: true, legacyHeaders: false });
 
 // Form definitions per event change rarely but are read on every QR scan and
 // lead submission. Cache them briefly to skip a hot Postgres query each time.
@@ -117,6 +147,7 @@ router.post(
       throw new AppError(400, "This event has no active visitor type / form configured");
     }
 
+    const playToken = newPlayToken();
     const lead = await prisma.lead.create({
       data: {
         eventId,
@@ -124,6 +155,7 @@ router.post(
         visitorTypeId: visitorType.id,
         formDefinitionId: form.id,
         source: "MANUAL",
+        playToken,
         rawFormData: {
           contact_person: data.name,
           company_name: data.company ?? "",
@@ -145,7 +177,7 @@ router.post(
     // WhatsApp: welcome the visitor + send the lead report to the client (non-blocking).
     void notifyLeadReceived(lead.id).catch(() => {});
 
-    res.status(201).json({ leadId: lead.id, message: "Saved" });
+    res.status(201).json({ leadId: lead.id, playToken, playLink: playLink(playToken), message: "Saved" });
   }),
 );
 
@@ -161,7 +193,7 @@ router.get(
       include: {
         event: { select: { id: true, name: true } },
         booth: { select: { id: true, name: true } },
-        visitorType: { select: { id: true, name: true, slug: true } },
+        visitorType: { select: { id: true, name: true, slug: true, audience: true } },
       },
     });
 
@@ -228,6 +260,7 @@ router.post(
     }
 
     // Create lead
+    const playToken = newPlayToken();
     const lead = await prisma.lead.create({
       data: {
         eventId,
@@ -235,6 +268,7 @@ router.post(
         visitorTypeId,
         formDefinitionId,
         source: "QR_SCAN",
+        playToken,
         rawFormData: formData,
         status: "NEW",
       },
@@ -269,6 +303,8 @@ router.post(
 
     res.status(201).json({
       lead,
+      playToken,
+      playLink: playLink(playToken),
       message: "Lead submitted successfully. Syncing to CRM and Google Sheets...",
     });
   }),
@@ -296,6 +332,299 @@ router.get(
       lead,
       syncQueue: lead.syncQueue,
       recentLogs: lead.syncLogs,
+    });
+  }),
+);
+
+// ── GET /api/public/play/:token (Resolve a visitor's play session) ──
+// Opens from the "extra link". Returns the visitor's name + the games they can
+// play. No auth — the token itself is the capability.
+router.get(
+  "/play/:token",
+  asyncHandler(async (req: Request, res: Response) => {
+    const token = req.params.token as string;
+    const lead = await prisma.lead.findUnique({
+      where: { playToken: token },
+      select: {
+        id: true,
+        rawFormData: true,
+        event: { select: { id: true, name: true } },
+      },
+    });
+    if (!lead) throw new AppError(404, "This link is invalid or has expired");
+
+    const data = (lead.rawFormData ?? {}) as Record<string, any>;
+    const name =
+      data.contact_person ?? data.contactPerson ?? data.name ?? data.full_name ?? "";
+    const company = data.company_name ?? data.companyName ?? data.company ?? "";
+
+    res.json({
+      token,
+      visitor: { name, company },
+      event: lead.event,
+      games: GAMES,
+    });
+  }),
+);
+
+// ── GET /api/public/bni?q= (Public BNI directory lookup) ──
+// Name or phone typeahead used by the phone-first entry + card-scan flows.
+router.get(
+  "/bni",
+  publicLookupLimiter,
+  asyncHandler(async (req: Request, res: Response) => {
+    const q = String(req.query.q ?? "").trim();
+    if (q.length < 2) return res.json({ members: [] });
+    const members = await searchBni(q, 8);
+    res.json({ members });
+  }),
+);
+
+// ── POST /api/public/card-scan (Public business-card OCR + BNI enrich) ──
+const cardScanSchema = z.object({ image: z.string().min(1, "Image is required") });
+
+router.post(
+  "/card-scan",
+  publicScanLimiter,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { image } = cardScanSchema.parse(req.body);
+    const { parsed, rawText } = await parseCardWithAI(image);
+
+    // If the card's phone matches a BNI member, return the enriched record so
+    // the visitor can just confirm instead of typing everything.
+    let bni = null;
+    if (parsed.mobileNumber) {
+      bni = await lookupBniByPhone(parsed.mobileNumber).catch(() => null);
+    }
+
+    res.json({ parsed, rawText, bni });
+  }),
+);
+
+// ── POST /api/public/score (Public AI Score game — no auth) ──
+// Queues a head-to-head website comparison from a visitor's play session.
+// Poll the result at GET /api/ai/analysis/:id (already public).
+const publicScoreSchema = z.object({
+  url: z.string().min(3, "Enter your website URL"),
+  competitorUrl: z.string().min(3, "Enter a competitor URL"),
+  competitorUrl2: z.string().optional(),
+  playToken: z.string().optional(),
+  email: z.string().email().optional(),
+});
+
+router.post(
+  "/score",
+  publicScanLimiter,
+  asyncHandler(async (req: Request, res: Response) => {
+    const p = publicScoreSchema.parse(req.body);
+    const target = normalizeUrl(p.url);
+    const competitor = normalizeUrl(p.competitorUrl);
+    const competitor2 = p.competitorUrl2 ? normalizeUrl(p.competitorUrl2) : undefined;
+
+    // Attribute to the visitor's event/booth + recover their email from the lead.
+    let eventId: string | null = null;
+    let boothId: string | null = null;
+    let email: string | null = p.email ?? null;
+    if (p.playToken) {
+      const lead = await prisma.lead.findUnique({
+        where: { playToken: p.playToken },
+        select: { eventId: true, boothId: true, rawFormData: true },
+      });
+      if (lead) {
+        eventId = lead.eventId;
+        boothId = lead.boothId;
+        if (!email) {
+          const d = (lead.rawFormData ?? {}) as Record<string, any>;
+          email = d.email ?? d.emailAddress ?? d.email_address ?? null;
+        }
+      }
+    }
+
+    const analysis = await prisma.websiteAnalysis.create({
+      data: { url: target, competitorUrl: competitor, status: "PENDING", eventId, boothId },
+    });
+
+    const info = queueInfo();
+    enqueueAnalysis({
+      analysisId: analysis.id,
+      url: target,
+      competitorUrl: competitor,
+      competitorUrl2: competitor2,
+      email: email ?? undefined,
+      playToken: p.playToken,
+    });
+
+    // Track under the play session so the TV + result email can find it later.
+    if (p.playToken) {
+      await prisma.gameResult
+        .create({
+          data: { playToken: p.playToken, gameType: "AI_SCORE", status: "PENDING", refId: analysis.id, email },
+        })
+        .catch(() => {});
+    }
+
+    res.status(202).json({
+      analysisId: analysis.id,
+      queuePosition: Math.max(0, info.waiting + info.active - info.max + 1),
+    });
+  }),
+);
+
+// ── POST /api/public/calculator (Profitability Calculator — Game 2) ──
+// Computes the P&L server-side, records it against the play session (for the TV
+// display), and emails the results to the visitor.
+const calculatorSchema = z.object({
+  revenue: z.number().nonnegative(),
+  employeeCost: z.number().nonnegative().default(0),
+  operationCost: z.number().nonnegative().default(0),
+  marketingBdCost: z.number().nonnegative().default(0),
+  taxRatePct: z.number().min(0).max(100).default(25),
+  period: z.string().optional(), // "month" | "year" — display label only
+  playToken: z.string().optional(),
+  email: z.string().email().optional(),
+});
+
+router.post(
+  "/calculator",
+  publicLookupLimiter,
+  asyncHandler(async (req: Request, res: Response) => {
+    const p = calculatorSchema.parse(req.body);
+    const results = computeProfit(p);
+
+    // Recover the visitor's email from their play session if not supplied.
+    let email: string | null = p.email ?? null;
+    if (p.playToken && !email) {
+      const lead = await prisma.lead.findUnique({
+        where: { playToken: p.playToken },
+        select: { rawFormData: true },
+      });
+      const d = (lead?.rawFormData ?? {}) as Record<string, any>;
+      email = d.email ?? d.emailAddress ?? d.email_address ?? null;
+    }
+
+    // Record against the play session so the TV display can pick it up.
+    if (p.playToken) {
+      await prisma.gameResult
+        .create({
+          data: {
+            playToken: p.playToken,
+            gameType: "PROFIT_CALC",
+            status: "COMPLETED",
+            payload: { inputs: p, results } as any,
+            email,
+          },
+        })
+        .catch(() => {});
+    }
+
+    // Email the results (best-effort).
+    if (email && emailService.isEmailConfigured()) {
+      const period = p.period === "year" ? "per year" : "per month";
+      const text = [
+        "Hi,",
+        "",
+        `Here is your profitability snapshot (${period}):`,
+        "",
+        `Revenue: ${inr(results.revenue)}`,
+        `Employee cost: ${inr(results.employeeCost)}`,
+        `Operation cost: ${inr(results.operationCost)}`,
+        `Marketing & BD cost: ${inr(results.marketingBdCost)}`,
+        `Gross profit: ${inr(results.grossProfit)}`,
+        `Net tax: ${inr(results.netTax)}`,
+        `Net profit: ${inr(results.profit)} (${results.profitMarginPct}% margin)`,
+        "",
+        "Want to improve these numbers? Let's talk.",
+        "",
+        "Rath Infotech and Web Solutions",
+      ].join("\n");
+      void emailService
+        .sendEmail(email, "Your profitability snapshot", text)
+        .catch((e) => console.error("[calculator] email failed:", (e as Error)?.message));
+    }
+
+    res.json({ results, emailed: Boolean(email && emailService.isEmailConfigured()) });
+  }),
+);
+
+// ── GET /api/public/tv-feed (Booth TV / stall display) ──
+// Live queue stats + latest game results + leaderboards. Polled by the /tv
+// screen every few seconds. No auth.
+router.get(
+  "/tv-feed",
+  asyncHandler(async (_req: Request, res: Response) => {
+    const [event, analyses, calcs] = await Promise.all([
+      prisma.event.findFirst({
+        where: { status: "ACTIVE" },
+        orderBy: { startDate: "desc" },
+        select: { name: true },
+      }),
+      // AI Score results (head-to-head only) — richest data lives on the analysis.
+      prisma.websiteAnalysis.findMany({
+        where: { status: "COMPLETED", NOT: { competitorUrl: null } },
+        orderBy: { updatedAt: "desc" },
+        take: 12,
+        select: { id: true, url: true, competitorUrl: true, company: true, audit: true, updatedAt: true },
+      }),
+      prisma.gameResult.findMany({
+        where: { gameType: "PROFIT_CALC", status: "COMPLETED" },
+        orderBy: { createdAt: "desc" },
+        take: 12,
+      }),
+    ]);
+
+    const hostOf = (u?: string | null) => {
+      if (!u) return "";
+      try {
+        return new URL(u).hostname.replace(/^www\./, "");
+      } catch {
+        return u;
+      }
+    };
+
+    const scoreItems = analyses.map((a) => {
+      const au = (a.audit ?? {}) as any;
+      return {
+        type: "AI_SCORE" as const,
+        at: a.updatedAt,
+        label: a.company || hostOf(a.url),
+        yourScore: au.your?.overallScore ?? null,
+        competitorScore: au.competitor?.overallScore ?? null,
+        winner: au.verdict?.winner ?? null,
+        url: hostOf(a.url),
+        competitor: hostOf(a.competitorUrl),
+      };
+    });
+
+    const calcItems = calcs.map((c) => {
+      const p = (c.payload ?? {}) as any;
+      const r = p.results ?? {};
+      return {
+        type: "PROFIT_CALC" as const,
+        at: c.createdAt,
+        revenue: r.revenue ?? null,
+        profit: r.profit ?? null,
+        margin: r.profitMarginPct ?? null,
+      };
+    });
+
+    const scoreBoard = [...scoreItems]
+      .filter((s) => typeof s.yourScore === "number")
+      .sort((a, b) => (b.yourScore ?? 0) - (a.yourScore ?? 0))
+      .slice(0, 5)
+      .map((s) => ({ label: s.label || s.url, value: s.yourScore }));
+
+    const marginBoard = [...calcItems]
+      .filter((c) => typeof c.margin === "number")
+      .sort((a, b) => (b.margin ?? 0) - (a.margin ?? 0))
+      .slice(0, 5)
+      .map((c) => ({ value: c.margin, profit: c.profit }));
+
+    res.json({
+      event: event ?? null,
+      queue: queueInfo(),
+      scoreItems,
+      calcItems,
+      leaderboard: { scores: scoreBoard, margins: marginBoard },
     });
   }),
 );

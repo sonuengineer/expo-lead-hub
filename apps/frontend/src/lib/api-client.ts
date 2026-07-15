@@ -77,6 +77,18 @@ export const publicApi = {
   getAnalysis: (id: string) => publicClient.get(`/ai/analysis/${id}`),
   getBoothContext: () => publicClient.get("/public/booth-context"),
   saveBoothLead: (data: unknown) => publicClient.post("/public/booth-lead", data),
+  // Play session (visitor "extra link" → game selector)
+  getPlaySession: (token: string) => publicClient.get(`/public/play/${token}`),
+  // Public BNI directory lookup (phone-first / card-scan enrichment)
+  bniLookup: (q: string) => publicClient.get("/public/bni", { params: { q } }),
+  // Public business-card scan (OCR + BNI enrich)
+  cardScan: (image: string) => publicClient.post("/public/card-scan", { image }),
+  // Public AI Score game (queue a comparison; poll via getAnalysis)
+  submitScore: (data: unknown) => publicClient.post("/public/score", data),
+  // Public Profitability Calculator (compute + email results)
+  submitCalculator: (data: unknown) => publicClient.post("/public/calculator", data),
+  // Booth TV / stall display feed
+  tvFeed: () => publicClient.get("/public/tv-feed"),
 };
 
 // API Methods

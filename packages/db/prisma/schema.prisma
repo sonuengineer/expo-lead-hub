@@ -90,6 +90,19 @@ enum NotificationChannel {
   WEBHOOK
 }
 
+// Which side of the stall / which QR a visitor came through.
+enum Audience {
+  AGENCY
+  END_USER
+  GENERAL
+}
+
+// The interactive games a visitor can play from their "extra link".
+enum GameType {
+  AI_SCORE
+  PROFIT_CALC
+}
+
 // ═══════════════════════════════════════════
 // MODELS
 // ═══════════════════════════════════════════
@@ -192,6 +205,7 @@ model VisitorType {
   name          String
   slug          String
   color         String?
+  audience      Audience @default(GENERAL)
   isActive      Boolean  @default(true) @map("is_active")
   displayOrder  Int      @default(0) @map("display_order")
   createdAt     DateTime @default(now()) @map("created_at")
@@ -272,6 +286,7 @@ model Lead {
   formDefinitionId    String     @map("form_definition_id") @db.Uuid
   source              LeadSource
   submittedBy         String?    @map("submitted_by") @db.Uuid
+  playToken           String?    @unique @map("play_token") // opens the visitor's "extra link" → game selector
   rawFormData         Json       @map("raw_form_data")
   ocrRawText          String?    @map("ocr_raw_text") @db.Text
   ocrConfidence       Float?     @map("ocr_confidence")
@@ -430,12 +445,14 @@ model WebsiteAnalysis {
   id            String         @id @default(uuid()) @db.Uuid
   url           String
   competitorUrl String?        @map("competitor_url")
+  competitorUrl2 String?       @map("competitor_url_2") // optional 2nd competitor
   company       String?
   title         String?
   description   String?        @db.Text
   desktopShot   String?        @map("desktop_shot") @db.Text // base64 data URL (your site)
   mobileShot    String?        @map("mobile_shot") @db.Text  // base64 data URL (your site)
   competitorShot String?       @map("competitor_shot") @db.Text // base64 data URL (competitor)
+  competitor2Shot String?      @map("competitor2_shot") @db.Text // base64 data URL (2nd competitor)
   roast         Json?          // legacy (unused by score game)
   audit         Json?          // { your:{...}, competitor:{...}, verdict:{...}, lighthouse:{...} }
   suggestions   Json?          // { heroHeadline, cta, colorPalette, trustElements, missingSections, conversion, mobile }
@@ -463,6 +480,7 @@ model BniMember {
   name        String
   company     String?
   profession  String?
+  email       String?
   phone       String?
   phoneE164   String?  @map("phone_e164")
   website     String?
@@ -482,4 +500,29 @@ model BniMember {
   @@unique([phoneE164])
   @@index([name])
   @@map("bni_members")
+}
+
+// ═══════════════════════════════════════════
+// ENGAGEMENT GAMES (played from a visitor's "extra link")
+// ═══════════════════════════════════════════
+
+// One row per game a visitor starts from their play session. Holds the inputs
+// and, once processed, the results — read by the TV display and the result
+// email. Loosely linked to a Lead via playToken (no hard FK, mirrors the
+// self-contained WebsiteAnalysis module).
+model GameResult {
+  id        String         @id @default(uuid()) @db.Uuid
+  playToken String         @map("play_token")
+  gameType  GameType       @map("game_type")
+  status    AnalysisStatus @default(PENDING)
+  payload   Json?          // game-specific inputs + computed results
+  refId     String?        @map("ref_id") @db.Uuid // e.g. WebsiteAnalysis.id for AI_SCORE
+  email     String?        // where to email the result, if provided
+  error     String?        @db.Text
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  @@index([playToken])
+  @@index([status])
+  @@map("game_results")
 }

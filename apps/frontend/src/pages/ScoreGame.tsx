@@ -28,6 +28,7 @@ export function ScoreGamePage() {
   const [phone, setPhone] = useState("");
   const [url, setUrl] = useState("");
   const [competitorUrl, setCompetitorUrl] = useState("");
+  const [competitorUrl2, setCompetitorUrl2] = useState("");
 
   const [eventId, setEventId] = useState("");
   const [boothId, setBoothId] = useState("");
@@ -70,7 +71,7 @@ export function ScoreGamePage() {
   const clearPick = () => { setPicked(null); setQ(""); };
 
   const scoreMutation = useMutation({
-    mutationFn: () => api.ai.score({ url, competitorUrl, company: company || undefined, name: name || undefined, phone: phone || undefined, eventId: eventId || undefined, boothId: boothId || undefined }),
+    mutationFn: () => api.ai.score({ url, competitorUrl, competitorUrl2: competitorUrl2.trim() || undefined, company: company || undefined, name: name || undefined, phone: phone || undefined, eventId: eventId || undefined, boothId: boothId || undefined }),
     onSuccess: (res: any) => { setAnalysis(null); setLeadSaved(false); setPendingId(res.data.analysis.id); setQueuePos(res.data.queuePosition ?? 0); },
     onError: (err: any) => toast.error(err?.response?.data?.message ?? "Could not start the audit. Check the URLs."),
   });
@@ -167,6 +168,9 @@ export function ScoreGamePage() {
               <Field icon={<Globe size={16} />} value={url} onChange={setUrl} placeholder="Your website" tone="emerald" />
               <span className="text-center font-black text-gray-400">VS</span>
               <Field icon={<Swords size={16} />} value={competitorUrl} onChange={setCompetitorUrl} placeholder="Competitor website" tone="rose" />
+            </div>
+            <div className="mt-4">
+              <Field icon={<Swords size={16} />} value={competitorUrl2} onChange={setCompetitorUrl2} placeholder="2nd competitor website (optional)" tone="rose" />
             </div>
             <button
               onClick={() => scoreMutation.mutate()}

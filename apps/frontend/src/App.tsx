@@ -20,6 +20,10 @@ import { AnalysisHistoryPage } from "./pages/AnalysisHistory";
 import { AnalysisReportPage } from "./pages/AnalysisReport";
 import { BoothLanding } from "./pages/BoothLanding";
 import { PartnershipCalculator } from "./pages/PartnershipCalculator";
+import { PlaySelect } from "./pages/PlaySelect";
+import { PublicScoreGame } from "./pages/PublicScoreGame";
+import { ProfitCalculator } from "./pages/ProfitCalculator";
+import { TvDisplay } from "./pages/TvDisplay";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -43,6 +47,10 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/v/:shortCode" element={<PublicLeadForm />} />
+        <Route path="/play/:token" element={<PlaySelect />} />
+        <Route path="/play/:token/score" element={<PublicScoreGame />} />
+        <Route path="/play/:token/calculator" element={<ProfitCalculator />} />
+        <Route path="/tv" element={<TvDisplay />} />
         <Route path="/ai/report/:id" element={<AnalysisReportPage />} />
         <Route path="/booth" element={<BoothLanding />} />
         <Route path="/booth/calculator" element={<PartnershipCalculator />} />

@@ -12,6 +12,8 @@ const createVisitorTypeSchema = z.object({
   name: z.string().min(1, "Visitor type name is required"),
   slug: z.string().min(1, "Slug is required"),
   color: z.string().regex(/^#[0-9A-F]{6}$/i, "Invalid color format (use hex)").optional(),
+  // Which side of the stall this QR/type is for (agencies vs end users).
+  audience: z.enum(["AGENCY", "END_USER", "GENERAL"]).optional(),
 });
 
 const updateVisitorTypeSchema = createVisitorTypeSchema.partial();

@@ -31,9 +31,24 @@ const DEFAULTS: Record<Channel, { subject?: string; welcomeTemplate: string; rep
     reportTemplate: "Here's what we captured:\nName: {name}\nCompany: {company}",
   },
   EMAIL: {
-    subject: "Thank you for visiting {event}",
-    welcomeTemplate:
-      "Hi {name}! Thanks for visiting {event}. We've received your details and our team will get in touch soon.",
+    subject: "Great meeting you at {event}, {name}",
+    welcomeTemplate: `Hi {name},
+
+You walked into {event} today. We are glad you did.
+
+Thank you for taking the time to stop by and have a conversation with us. In a room full of people moving fast, that meant something.
+
+Whatever we spoke about at the stall, that conversation does not have to end there.
+
+A quick 30-minute call is all it takes to figure out if there is something here worth building together. No pressure, no pitch deck, just a straight conversation.
+
+Whenever you are ready, I am here.
+
+Akshay Narvekar
+Rath Infotech and Web Solutions
+sales@rathinfotech.com
++91 727 727 1 727
+rathinfotech.com`,
     reportTemplate: "Here's what we captured:\nName: {name}\nCompany: {company}",
   },
 };
@@ -89,7 +104,7 @@ function ChannelEditor({
   const [form, setForm] = useState({
     isActive: config?.isActive ?? true,
     welcomeEnabled: config?.config?.welcomeEnabled ?? true,
-    reportEnabled: config?.config?.reportEnabled ?? true,
+    reportEnabled: config?.config?.reportEnabled ?? channel !== "EMAIL",
     sessionId: config?.config?.sessionId ?? "",
     subject: config?.config?.subject ?? DEFAULTS.EMAIL.subject,
     welcomeTemplate: config?.config?.welcomeTemplate ?? DEFAULTS[channel].welcomeTemplate,
@@ -186,10 +201,10 @@ function ChannelEditor({
       <div>
         <label className="mb-1 block text-sm font-medium text-gray-700">Welcome template</label>
         <textarea
-          rows={2}
+          rows={channel === "EMAIL" ? 16 : 3}
           value={form.welcomeTemplate}
           onChange={(e) => set({ welcomeTemplate: e.target.value })}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="w-full resize-y rounded-lg border border-gray-300 px-3 py-2 text-sm leading-relaxed focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         />
       </div>
 

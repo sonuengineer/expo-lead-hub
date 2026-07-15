@@ -2,6 +2,7 @@ import { prisma } from "@elc/db";
 import { env } from "../config/env";
 import { whatsAppService } from "./whatsapp.service";
 import { emailService } from "./email.service";
+import { playLink } from "../utils/play-link";
 
 // ── Field extraction (tolerant of camelCase / snake_case form keys) ──
 const NAME_KEYS = ["contactPerson", "contact_person", "name", "fullName", "full_name", "contactName"];
@@ -28,8 +29,31 @@ interface ChannelConfig {
 }
 
 const DEFAULT_WELCOME =
-  "Hi {name}! Thanks for visiting {event}. We've received your details and our team will get in touch soon.";
+  "Hi {name}! Thanks for visiting {event}. We've received your details and our team will get in touch soon.\n\nPlay our 90-second AI website challenge here: {link}";
 const DEFAULT_REPORT = "Here's what we captured:\nName: {name}\nCompany: {company}";
+
+// Email gets a longer, signed follow-up by default (WhatsApp stays short above).
+const DEFAULT_EMAIL_WELCOME = `Hi {name},
+
+You walked into {event} today. We are glad you did.
+
+Thank you for taking the time to stop by and have a conversation with us. In a room full of people moving fast, that meant something.
+
+Whatever we spoke about at the stall, that conversation does not have to end there.
+
+While you are here, try our 90-second AI website challenge and pick a game: {link}
+
+A quick 30-minute call is all it takes to figure out if there is something here worth building together. No pressure, no pitch deck, just a straight conversation.
+
+Whenever you are ready, I am here.
+
+Akshay Narvekar
+Rath Infotech and Web Solutions
+sales@rathinfotech.com
++91 727 727 1 727
+rathinfotech.com`;
+
+const DEFAULT_EMAIL_SUBJECT = "Great meeting you at {event}, {name}";
 
 function render(template: string, vars: Record<string, string>): string {
   return template.replace(/\{(\w+)\}/g, (_, key: string) => vars[key] ?? "");
@@ -55,6 +79,7 @@ export async function notifyLeadReceived(leadId: string): Promise<void> {
     name: pick(data, NAME_KEYS) || "there",
     company: pick(data, COMPANY_KEYS),
     event: lead.event.name,
+    link: lead.playToken ? playLink(lead.playToken) : "",
   };
   const sessionId = env.OPENWA_SESSION_ID;
   const visitorPhone = pick(data, PHONE_KEYS);
@@ -86,10 +111,12 @@ export async function notifyLeadReceived(leadId: string): Promise<void> {
     }
 
     if (cfg.channel === "EMAIL" && visitorEmail) {
-      const subject = c.subject || `Thank you for visiting ${lead.event.name}`;
+      const subject = render(c.subject || DEFAULT_EMAIL_SUBJECT, vars);
       const parts: string[] = [];
-      if (c.welcomeEnabled !== false) parts.push(render(c.welcomeTemplate || DEFAULT_WELCOME, vars));
-      if (c.reportEnabled !== false) parts.push(render(c.reportTemplate || DEFAULT_REPORT, vars));
+      if (c.welcomeEnabled !== false) parts.push(render(c.welcomeTemplate || DEFAULT_EMAIL_WELCOME, vars));
+      // Report is opt-in for email — the welcome already reads as a full signed
+      // message; appending a "captured fields" block would look odd.
+      if (c.reportEnabled === true) parts.push(render(c.reportTemplate || DEFAULT_REPORT, vars));
       if (parts.length) {
         await emailService
           .sendEmail(visitorEmail, subject, parts.join("\n\n"))

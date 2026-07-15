@@ -8,22 +8,35 @@ interface SiteScore {
   ux?: number;
   seo?: number;
   conversion?: number;
+  llmScore?: number;
   summary?: string;
   lighthouse?: { performance?: number | null; seo?: number | null; accessibility?: number | null; bestPractices?: number | null };
+}
+
+interface DomainMetrics {
+  da?: number | null;
+  pa?: number | null;
+  keywordCount?: number | null;
+  organicTraffic?: number | null;
+  topKeywords?: string[];
 }
 
 export interface Comparison {
   id: string;
   url: string;
   competitorUrl?: string | null;
+  competitorUrl2?: string | null;
   company?: string | null;
   mobileShot?: string | null;
   desktopShot?: string | null;
   competitorShot?: string | null;
+  competitor2Shot?: string | null;
   audit?: {
     your?: SiteScore;
     competitor?: SiteScore;
-    verdict?: { winner?: "you" | "competitor" | "tie"; perCategory?: Array<{ key: string; youWin: boolean; note: string }>; reasoning?: string };
+    competitor2?: SiteScore;
+    verdict?: { winner?: "you" | "competitor" | "competitor2" | "tie"; perCategory?: Array<{ key: string; youWin: boolean; note: string }>; reasoning?: string };
+    metrics?: { your?: DomainMetrics | null; competitor?: DomainMetrics | null; competitor2?: DomainMetrics | null } | null;
   } | null;
   suggestions?: {
     heroHeadline?: string;
@@ -67,6 +80,33 @@ function BigScore({ label, value, highlight }: { label: string; value: number; h
   );
 }
 
+function MetricsCol({ title, m, accent }: { title: string; m: DomainMetrics | null; accent: string }) {
+  const stat = (label: string, val: number | null | undefined) => (
+    <div className="flex justify-between text-sm">
+      <span className="text-gray-500">{label}</span>
+      <span className={`font-semibold ${accent}`}>{val ?? "–"}</span>
+    </div>
+  );
+  return (
+    <div>
+      <p className="mb-2 truncate text-sm font-semibold text-gray-800" title={title}>{title}</p>
+      <div className="space-y-1.5">
+        {stat("Domain Authority", m?.da)}
+        {stat("Page Authority", m?.pa)}
+        {stat("Ranking keywords", m?.keywordCount)}
+        {stat("Est. organic traffic", m?.organicTraffic)}
+      </div>
+      {m?.topKeywords && m.topKeywords.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {m.topKeywords.slice(0, 5).map((k, i) => (
+            <span key={i} className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600">{k}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Bar({ label, you, comp }: { label: string; you?: number; comp?: number }) {
   const y = you ?? 0;
   const c = comp ?? 0;
@@ -98,6 +138,10 @@ export function ScoreReport({ data }: { data: Comparison }) {
   const tie = verdict.winner === "tie";
   const lh = your.lighthouse ?? {};
   const clh = comp.lighthouse ?? {};
+  const comp2 = data.audit?.competitor2 ?? null;
+  const myMetrics = data.audit?.metrics?.your ?? null;
+  const compMetrics = data.audit?.metrics?.competitor ?? null;
+  const comp2Metrics = data.audit?.metrics?.competitor2 ?? null;
 
   return (
     <div className="space-y-6">
@@ -115,6 +159,12 @@ export function ScoreReport({ data }: { data: Comparison }) {
         <BigScore label={data.company || hostOf(data.url) || "Your site"} value={your.overallScore ?? 0} highlight={youWin} />
         <div className="flex items-center justify-center px-2 text-lg font-black text-gray-400">VS</div>
         <BigScore label={hostOf(data.competitorUrl) || "Competitor"} value={comp.overallScore ?? 0} highlight={verdict.winner === "competitor"} />
+        {comp2 && (
+          <>
+            <div className="flex items-center justify-center px-2 text-lg font-black text-gray-400">VS</div>
+            <BigScore label={hostOf(data.competitorUrl2) || "Competitor 2"} value={comp2.overallScore ?? 0} highlight={verdict.winner === "competitor2"} />
+          </>
+        )}
       </div>
 
       {/* Category comparison */}
@@ -127,16 +177,31 @@ export function ScoreReport({ data }: { data: Comparison }) {
           <Bar label="UX" you={your.ux} comp={comp.ux} />
           <Bar label="SEO" you={your.seo} comp={comp.seo} />
           <Bar label="Conversion" you={your.conversion} comp={comp.conversion} />
+          {(your.llmScore != null || comp.llmScore != null) && <Bar label="LLM" you={your.llmScore} comp={comp.llmScore} />}
           {(lh.performance != null || clh.performance != null) && <Bar label="Performance" you={lh.performance ?? undefined} comp={clh.performance ?? undefined} />}
           {(lh.accessibility != null || clh.accessibility != null) && <Bar label="Accessibility" you={lh.accessibility ?? undefined} comp={clh.accessibility ?? undefined} />}
         </div>
-        <p className="mt-3 text-center text-xs text-gray-400">UI / UX / Conversion are AI design scores. Performance / Accessibility are Lighthouse (when a PSI key is configured).</p>
+        <p className="mt-3 text-center text-xs text-gray-400">UI / UX / Conversion / LLM are AI scores. Performance / Accessibility are Lighthouse (when a PSI key is configured).</p>
       </div>
 
+      {/* Domain authority + keywords (DataForSEO) */}
+      {(myMetrics || compMetrics) && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-gray-500">Domain authority &amp; keywords</h3>
+          <div className={`grid gap-4 ${comp2 ? "grid-cols-3" : "grid-cols-2"}`}>
+            <MetricsCol title={data.company || hostOf(data.url) || "Your site"} m={myMetrics} accent="text-emerald-600" />
+            <MetricsCol title={hostOf(data.competitorUrl) || "Competitor"} m={compMetrics} accent="text-rose-600" />
+            {comp2 && <MetricsCol title={hostOf(data.competitorUrl2) || "Competitor 2"} m={comp2Metrics} accent="text-rose-600" />}
+          </div>
+          <p className="mt-3 text-center text-xs text-gray-400">DA / PA are DataForSEO domain &amp; page ranks (0–1000). Keywords &amp; traffic are organic estimates.</p>
+        </div>
+      )}
+
       {/* Summaries + screenshots */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className={`grid grid-cols-1 gap-4 ${comp2 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
         <SiteCard title={data.company || "Your site"} url={data.url} shot={data.mobileShot || data.desktopShot} summary={your.summary} tone="emerald" />
         <SiteCard title="Competitor" url={data.competitorUrl} shot={data.competitorShot} summary={comp.summary} tone="rose" />
+        {comp2 && <SiteCard title="Competitor 2" url={data.competitorUrl2} shot={data.competitor2Shot} summary={comp2.summary} tone="rose" />}
       </div>
 
       {/* Suggestions to win */}

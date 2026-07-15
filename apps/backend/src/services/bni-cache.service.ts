@@ -9,6 +9,7 @@ export interface BniLite {
   id: string;
   name: string;
   company: string | null;
+  email: string | null;
   phone: string | null;
   phoneE164: string | null;
   website: string | null;
@@ -31,6 +32,7 @@ async function ensureLoaded(): Promise<void> {
         id: true,
         name: true,
         company: true,
+        email: true,
         phone: true,
         phoneE164: true,
         website: true,
@@ -70,6 +72,19 @@ export async function searchBni(q: string, limit = 8): Promise<BniLite[]> {
     }
   }
   return out;
+}
+
+// Exact-ish match by phone number (last 10 digits) — used to auto-enrich a
+// scanned card or a phone-first entry. Returns the single best match, or null.
+export async function lookupBniByPhone(phone: string): Promise<BniLite | null> {
+  const digits = (phone ?? "").replace(/\D/g, "");
+  if (digits.length < 6) return null;
+  const last10 = digits.slice(-10);
+  await ensureLoaded();
+  for (const m of cache) {
+    if ((m.phoneE164 ?? "").replace(/\D/g, "").endsWith(last10)) return m;
+  }
+  return null;
 }
 
 // Force a refresh (e.g. after re-importing the directory).

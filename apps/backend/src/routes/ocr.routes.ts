@@ -8,6 +8,7 @@ import { asyncHandler } from "../utils/async-handler";
 import { ocrManager } from "../services/ocr.service";
 import { parseCardWithAI } from "../services/card-parser.service";
 import { notifyLeadReceived } from "../services/notification.service";
+import { newPlayToken, playLink } from "../utils/play-link";
 
 const router = Router();
 
@@ -95,6 +96,7 @@ router.post(
     }
 
     // Create lead with OCR data
+    const playToken = newPlayToken();
     const lead = await prisma.lead.create({
       data: {
         eventId,
@@ -102,6 +104,7 @@ router.post(
         visitorTypeId,
         formDefinitionId,
         source: "OCR_SCAN",
+        playToken,
         rawFormData: formData,
         ocrRawText,
         ocrConfidence,
@@ -151,6 +154,8 @@ router.post(
 
     res.status(201).json({
       lead,
+      playToken,
+      playLink: playLink(playToken),
       message: "Lead created from OCR scan and queued for sync",
     });
   }),

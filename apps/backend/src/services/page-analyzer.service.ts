@@ -192,11 +192,28 @@ class DataForSeoAnalyzer implements PageAnalyzer {
 }
 
 // ── Provider factory ──────────────────────────
-// DataForSEO (paid, deeper) when credentials are set; otherwise the free PSI
-// analyzer. Callers don't change.
+// Controlled by SEO_PROVIDER:
+//  - "pagespeed"  → always the free PSI analyzer
+//  - "dataforseo" → DataForSEO (requires creds; falls back to PSI on error)
+//  - "auto"       → DataForSEO when creds are set, else PSI
 export function getPageAnalyzer(): PageAnalyzer {
-  if (env.DATAFORSEO_LOGIN && env.DATAFORSEO_PASSWORD) {
+  const hasCreds = Boolean(env.DATAFORSEO_LOGIN && env.DATAFORSEO_PASSWORD);
+  if (env.SEO_PROVIDER === "pagespeed") return new PageSpeedAnalyzer();
+  if (env.SEO_PROVIDER === "dataforseo") {
+    if (!hasCreds) {
+      console.warn("SEO_PROVIDER=dataforseo but DATAFORSEO creds are missing — using PageSpeed.");
+      return new PageSpeedAnalyzer();
+    }
     return new DataForSeoAnalyzer();
   }
-  return new PageSpeedAnalyzer();
+  // auto
+  return hasCreds ? new DataForSeoAnalyzer() : new PageSpeedAnalyzer();
+}
+
+// True when DataForSEO domain metrics (DA/PA/keywords) should be fetched.
+export function dataForSeoEnabled(): boolean {
+  return (
+    env.SEO_PROVIDER !== "pagespeed" &&
+    Boolean(env.DATAFORSEO_LOGIN && env.DATAFORSEO_PASSWORD)
+  );
 }
