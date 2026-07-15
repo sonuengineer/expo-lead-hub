@@ -13,6 +13,7 @@ import { SyncPage } from "./pages/Sync";
 import { AuditLogPage } from "./pages/AuditLog";
 import { UsersPage } from "./pages/Users";
 import { AutomationPage } from "./pages/Automation";
+import { AccountPage } from "./pages/Account";
 import { PublicLeadForm } from "./pages/PublicLeadForm";
 import { WebsiteRoastPage } from "./pages/WebsiteRoast";
 import { ScoreGamePage } from "./pages/ScoreGame";
@@ -69,6 +70,7 @@ export default function App() {
           <Route path="ai/score" element={<ScoreGamePage />} />
           <Route path="ai/roast" element={<WebsiteRoastPage />} />
           <Route path="ai/history" element={<AnalysisHistoryPage />} />
+          <Route path="account" element={<AccountPage />} />
           <Route path="qr-codes" element={<RequireRole roles={ADMIN}><QrCodesPage /></RequireRole>} />
           <Route path="forms" element={<RequireRole roles={ADMIN}><FormBuilderPage /></RequireRole>} />
           <Route path="sync" element={<RequireRole roles={ADMIN}><SyncPage /></RequireRole>} />

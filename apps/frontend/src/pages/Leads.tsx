@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Download, Search, Loader2 } from "lucide-react";
+import { Download, Search, Loader2, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "../lib/api-client";
+import { useAuthStore } from "../stores/auth.store";
 import { LeadStatusBadge, SourceBadge, formatDate } from "../components/badges";
 
 const PAGE_SIZE = 20;
@@ -25,6 +26,9 @@ interface LeadRow {
 }
 
 export function LeadsPage() {
+  const qc = useQueryClient();
+  const role = useAuthStore((s) => s.user?.role);
+  const canDelete = role === "ADMIN" || role === "SUPER_ADMIN";
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -56,6 +60,21 @@ export function LeadsPage() {
   const leads: LeadRow[] = data?.leads ?? [];
   const total: number = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.leads.remove(id),
+    onSuccess: () => {
+      toast.success("Lead deleted");
+      qc.invalidateQueries({ queryKey: ["leads"] });
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? "Delete failed"),
+  });
+
+  const confirmDelete = (lead: LeadRow) => {
+    if (window.confirm(`Delete lead${lead.name ? ` "${lead.name}"` : ""}? This cannot be undone.`)) {
+      deleteMutation.mutate(lead.id);
+    }
+  };
 
   const resetPageAnd = (fn: () => void) => {
     fn();
@@ -167,18 +186,19 @@ export function LeadsPage() {
                   {h}
                 </th>
               ))}
+              {canDelete && <th className="px-4 py-3 text-right font-semibold text-gray-600">Actions</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {isLoading ? (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-gray-400">
+                <td colSpan={canDelete ? 9 : 8} className="px-4 py-10 text-center text-gray-400">
                   Loading leads…
                 </td>
               </tr>
             ) : leads.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-gray-400">
+                <td colSpan={canDelete ? 9 : 8} className="px-4 py-10 text-center text-gray-400">
                   No leads match your filters.
                 </td>
               </tr>
@@ -220,6 +240,18 @@ export function LeadsPage() {
                   <td className="px-4 py-3 whitespace-nowrap text-gray-500">
                     {formatDate(lead.createdAt)}
                   </td>
+                  {canDelete && (
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => confirmDelete(lead)}
+                        disabled={deleteMutation.isPending}
+                        title="Delete lead"
+                        className="inline-flex items-center rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))
             )}

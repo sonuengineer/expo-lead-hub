@@ -163,6 +163,47 @@ router.get("/me", authenticate, (req: Request, res: Response) => {
   res.json({ user: req.user });
 });
 
+// ── Update Own Profile (name and/or password) ──
+const updateMeSchema = z
+  .object({
+    name: z.string().min(2, "Name must be at least 2 characters").optional(),
+    currentPassword: z.string().optional(),
+    newPassword: z.string().min(8, "New password must be at least 8 characters").optional(),
+  })
+  .refine((d) => d.name !== undefined || d.newPassword !== undefined, {
+    message: "Nothing to update",
+  });
+
+router.put(
+  "/me",
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { name, currentPassword, newPassword } = updateMeSchema.parse(req.body);
+    const userId = req.user!.id;
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new AppError(404, "User not found");
+
+    const data: { name?: string; passwordHash?: string } = {};
+    if (name) data.name = name;
+
+    if (newPassword) {
+      if (!currentPassword) throw new AppError(400, "Enter your current password to change it");
+      const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!ok) throw new AppError(400, "Current password is incorrect");
+      data.passwordHash = await bcrypt.hash(newPassword, 12);
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data,
+      select: { id: true, email: true, name: true, role: true, isActive: true },
+    });
+
+    res.json({ user: updated, message: "Profile updated" });
+  }),
+);
+
 // ── Logout ────────────────────────────────
 router.post("/logout", authenticate, (req: Request, res: Response) => {
   // Token invalidation should be handled client-side by removing the token

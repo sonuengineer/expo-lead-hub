@@ -103,13 +103,15 @@ export function Layout() {
 
         <div className="border-t border-gray-200 p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700">
-              {user?.name?.charAt(0) ?? "A"}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="truncate text-sm font-medium text-gray-900">{user?.name ?? "Admin"}</p>
-              <p className="truncate text-xs text-gray-500">{user?.role ?? "SUPER_ADMIN"}</p>
-            </div>
+            <Link to="/account" className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1 hover:bg-gray-100" title="My account">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700">
+                {user?.name?.charAt(0) ?? "A"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="truncate text-sm font-medium text-gray-900">{user?.name ?? "Admin"}</p>
+                <p className="truncate text-xs text-gray-500">{user?.role ?? "SUPER_ADMIN"}</p>
+              </div>
+            </Link>
             <button
               onClick={handleLogout}
               className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"

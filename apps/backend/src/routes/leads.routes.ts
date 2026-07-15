@@ -235,4 +235,29 @@ router.get(
   }),
 );
 
+// ── DELETE /api/leads/:id (Admin — remove a lead) ──
+// Cascades to its sync queue + logs (FK onDelete: Cascade).
+router.delete(
+  "/:id",
+  requireRole("SUPER_ADMIN", "ADMIN"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const id = String(req.params.id);
+    const existing = await prisma.lead.findUnique({ where: { id }, select: { id: true } });
+    if (!existing) throw new AppError(404, "Lead not found");
+
+    await prisma.lead.delete({ where: { id } });
+
+    if (res.locals.logAudit) {
+      await res.locals.logAudit({
+        userId: req.user?.id,
+        action: "LEAD_DELETED",
+        entityType: "LEAD",
+        entityId: id,
+      });
+    }
+
+    res.json({ message: "Lead deleted", id });
+  }),
+);
+
 export { router as leadsRouter };

@@ -1,12 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Calculator, Gamepad2, ArrowRight } from "lucide-react";
+import { Calculator, Gamepad2, ArrowRight, ArrowLeft } from "lucide-react";
 import { publicApi } from "../lib/api-client";
 
 interface BoothContext {
   event: { id: string; name: string; logoUrl?: string | null };
   booth: { id: string; name: string } | null;
 }
+
+// Where "Back to home" goes — your website's home. Defaults to the site root;
+// override with VITE_MAIN_SITE_URL to point at a specific URL.
+const MAIN_SITE_URL = import.meta.env.VITE_MAIN_SITE_URL || "/";
 
 export function BoothLanding() {
   const { data } = useQuery({
@@ -16,7 +20,15 @@ export function BoothLanding() {
   });
 
   return (
-    <div className="booth-bg flex flex-col items-center justify-center p-6">
+    <div className="booth-bg relative flex flex-col items-center justify-center p-6">
+      {/* Back to the main website */}
+      <a
+        href={MAIN_SITE_URL}
+        className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-sm font-medium text-white/70 transition hover:bg-white/15 hover:text-white sm:left-6 sm:top-6"
+      >
+        <ArrowLeft size={16} /> Back to home
+      </a>
+
       {/* Header */}
       <div className="mb-10 text-center">
         {data?.event?.logoUrl && (

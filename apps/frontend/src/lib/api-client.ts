@@ -101,6 +101,8 @@ export const api = {
       getApiClient().post("/auth/register", { email, password, name }),
     logout: () => getApiClient().post("/auth/logout"),
     me: () => getApiClient().get("/auth/me"),
+    updateProfile: (data: { name?: string; currentPassword?: string; newPassword?: string }) =>
+      getApiClient().put("/auth/me", data),
   },
 
   // Events
@@ -225,6 +227,7 @@ export const api = {
     get: (id: string) => getApiClient().get(`/leads/${id}`),
     export: (filters?: any) =>
       getApiClient().post("/leads/export", filters ?? {}, { responseType: "blob" }),
+    remove: (id: string) => getApiClient().delete(`/leads/${id}`),
   },
 
   // Audit Logs
