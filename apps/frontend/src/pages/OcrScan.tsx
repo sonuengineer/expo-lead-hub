@@ -50,6 +50,7 @@ export function OcrScanPage() {
   const [done, setDone] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [playLink, setPlayLink] = useState<string | null>(null);
+  const [manual, setManual] = useState(false); // staff typing the lead by hand (no scan)
 
   const { data: eventsData } = useQuery({
     queryKey: ["events-filter"],
@@ -139,6 +140,7 @@ export function OcrScanPage() {
         ocrConfidence: scan?.confidence ?? 0,
         formData,
         submittedBy: user!.id,
+        source: manual ? "MANUAL" : "OCR_SCAN",
       }),
     onSuccess: (res: any) => {
       const token: string | undefined = res?.data?.playToken;
@@ -153,6 +155,7 @@ export function OcrScanPage() {
     setScan(null);
     setDone(false);
     setPlayLink(null);
+    setManual(false);
   };
 
   if (done) {
@@ -160,7 +163,7 @@ export function OcrScanPage() {
       <div className="mx-auto max-w-md rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
         <CheckCircle2 className="mx-auto mb-3 text-green-500" size={48} />
         <h2 className="text-xl font-bold text-gray-900">Lead captured</h2>
-        <p className="mt-2 text-sm text-gray-600">The card was saved, and a WhatsApp/email with their game link is on the way.</p>
+        <p className="mt-2 text-sm text-gray-600">Saved — a WhatsApp/email with their game link is on the way.</p>
 
         {playLink && (
           <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50 p-4">
@@ -185,9 +188,9 @@ export function OcrScanPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Scan Business Card</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Capture Lead</h2>
         <p className="mt-1 text-sm text-gray-500">
-          Capture a card, review the auto-filled details, and save the lead.
+          Scan a business card to auto-fill, or enter the details manually — then save the lead.
         </p>
       </div>
 
@@ -220,6 +223,16 @@ export function OcrScanPage() {
                 onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
               />
             </label>
+
+            <div className="mt-3 text-center">
+              <button
+                onClick={() => setManual(true)}
+                className={`text-sm font-medium ${manual ? "text-gray-400" : "text-indigo-600 hover:underline"}`}
+                disabled={manual}
+              >
+                {manual ? "Manual entry — fill the form on the right →" : "or enter details manually (no card)"}
+              </button>
+            </div>
 
             {preview && (
               <div className="mt-4">
@@ -263,14 +276,14 @@ export function OcrScanPage() {
           {/* Review + submit */}
           <div className="rounded-lg border border-gray-200 bg-white p-5">
             <h3 className="mb-3 font-semibold text-gray-900">2 · Review &amp; save</h3>
-            {!scan ? (
-              <p className="py-10 text-center text-sm text-gray-400">Scan a card to auto-fill the form.</p>
+            {!scan && !manual ? (
+              <p className="py-10 text-center text-sm text-gray-400">Scan a card, or choose “enter details manually”.</p>
             ) : activeFields.length === 0 ? (
               <p className="py-10 text-center text-sm text-amber-600">No active form fields for this event.</p>
             ) : (
               <DynamicForm
-                key={scanKey}
-                fields={injectOcr(activeFields, scan.parsed)}
+                key={scan ? scanKey : "manual"}
+                fields={scan ? injectOcr(activeFields, scan.parsed) : activeFields}
                 submitting={submitMutation.isPending}
                 onSubmit={(values) => submitMutation.mutate(values)}
               />

@@ -32,10 +32,12 @@ const submitOcrLeadSchema = z.object({
   boothId: z.string().uuid("Invalid booth ID"),
   visitorTypeId: z.string().uuid("Invalid visitor type ID"),
   formDefinitionId: z.string().uuid("Invalid form definition ID"),
-  ocrRawText: z.string(),
-  ocrConfidence: z.number().min(0).max(1),
+  ocrRawText: z.string().default(""),
+  ocrConfidence: z.number().min(0).max(1).default(0),
   formData: z.record(z.any()),
   submittedBy: z.string().uuid("Invalid user ID"),
+  // "MANUAL" when staff typed the lead by hand (no card scan); default OCR_SCAN.
+  source: z.enum(["OCR_SCAN", "MANUAL"]).default("OCR_SCAN"),
 });
 
 // All OCR routes require authentication and STAFF+ role
@@ -83,7 +85,7 @@ router.post(
   "/submit",
   asyncHandler(async (req: Request, res: Response) => {
     const payload = submitOcrLeadSchema.parse(req.body);
-    const { eventId, boothId, visitorTypeId, formDefinitionId, ocrRawText, ocrConfidence, formData, submittedBy } =
+    const { eventId, boothId, visitorTypeId, formDefinitionId, ocrRawText, ocrConfidence, formData, submittedBy, source } =
       payload;
 
     // Verify form exists and belongs to event
@@ -103,7 +105,7 @@ router.post(
         boothId,
         visitorTypeId,
         formDefinitionId,
-        source: "OCR_SCAN",
+        source,
         playToken,
         rawFormData: formData,
         ocrRawText,

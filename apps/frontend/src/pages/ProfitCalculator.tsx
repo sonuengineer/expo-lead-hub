@@ -19,6 +19,10 @@ const FIELDS: { key: "revenue" | "employeeCost" | "operationCost" | "marketingBd
   { key: "marketingBdCost", label: "Marketing & BD cost" },
 ];
 
+// "Load example" demo values (borrowed from the old calculator's idea) so a
+// visitor can see the calculator work in one tap.
+const EXAMPLE = { revenue: "500000", employeeCost: "200000", operationCost: "80000", marketingBdCost: "50000" };
+
 export function ProfitCalculator() {
   const { token } = useParams<{ token: string }>();
   const [period, setPeriod] = useState<Period>("month");
@@ -71,14 +75,14 @@ export function ProfitCalculator() {
   });
 
   const canSubmit = num("revenue") > 0;
-  const profitable = results.profit >= 0;
+  const loss = results.isLoss;
 
   const Row = ({ label, value, strong, tone }: { label: string; value: number; strong?: boolean; tone?: "good" | "bad" }) => (
-    <div className={`flex items-center justify-between ${strong ? "border-t border-slate-200 pt-2" : ""}`}>
-      <span className={`text-sm ${strong ? "font-semibold text-gray-900" : "text-gray-500"}`}>{label}</span>
+    <div className={`flex items-center justify-between ${strong ? "mt-1 border-t border-white/10 pt-3" : ""}`}>
+      <span className={`text-sm ${strong ? "font-semibold text-white" : "text-slate-400"}`}>{label}</span>
       <span
-        className={`font-semibold ${strong ? "text-base" : "text-sm"} ${
-          tone === "good" ? "text-emerald-600" : tone === "bad" ? "text-rose-600" : "text-gray-800"
+        className={`font-semibold tabular-nums ${strong ? "text-lg" : "text-sm"} ${
+          tone === "good" ? "text-emerald-400" : tone === "bad" ? "text-rose-400" : "text-slate-100"
         }`}
       >
         {inr(value)}
@@ -87,103 +91,132 @@ export function ProfitCalculator() {
   );
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 to-emerald-950 p-4">
-      <div className="grid w-full max-w-4xl gap-4 md:grid-cols-2">
-        {/* Inputs */}
-        <div className="rounded-2xl bg-white p-6 shadow-xl">
-          <div className="mb-5 flex items-center gap-2">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
-              <Calculator size={22} />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">Profitability Calculator</h1>
-              <p className="text-xs text-gray-500">
-                {session.data?.visitor.company ? `${session.data.visitor.company} · ` : ""}enter your numbers
-              </p>
-            </div>
-          </div>
+    <div className="min-h-screen bg-[#070b11] p-4 text-white sm:p-8">
+      {/* subtle green glow */}
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(60rem_40rem_at_50%_-10%,rgba(16,185,129,0.10),transparent)]" />
 
-          <div className="mb-4 flex gap-2">
-            {(["month", "year"] as Period[]).map((p) => (
+      <div className="relative mx-auto max-w-5xl">
+        {/* Header */}
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30">
+            <Calculator size={24} />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Profitability Calculator</h1>
+          <p className="mx-auto mt-3 max-w-xl text-sm text-slate-400">
+            {session.data?.visitor.company ? `${session.data.visitor.company} — ` : ""}
+            See your profit, costs and margin in seconds. Runs in your browser.
+          </p>
+        </div>
+
+        <div className="grid gap-5 md:grid-cols-2">
+          {/* Inputs */}
+          <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+            <div className="mb-5 flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-xs font-bold text-black">1</span>
+              <h2 className="text-base font-semibold">Your numbers</h2>
               <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                className={`flex-1 rounded-lg border px-3 py-1.5 text-sm font-medium ${
-                  period === p ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-gray-200 text-gray-500"
-                }`}
+                onClick={() => {
+                  setVals({ ...EXAMPLE });
+                  setTaxRatePct("25");
+                }}
+                className="ml-auto text-xs font-medium text-emerald-400 hover:text-emerald-300"
               >
-                Per {p}
+                Load example
               </button>
-            ))}
-          </div>
+            </div>
 
-          <div className="space-y-3">
-            {FIELDS.map((f) => (
-              <div key={f.key}>
-                <label className="mb-1 block text-sm font-medium text-gray-700">{f.label}</label>
-                <div className="flex items-center rounded-lg border border-gray-300 px-3 focus-within:border-emerald-500">
-                  <span className="text-sm text-gray-400">₹</span>
-                  <input
-                    value={vals[f.key]}
-                    onChange={(e) => setVals((v) => ({ ...v, [f.key]: e.target.value.replace(/[^\d.]/g, "") }))}
-                    inputMode="numeric"
-                    placeholder="0"
-                    className="w-full bg-transparent px-2 py-2.5 text-sm focus:outline-none"
-                  />
+            <div className="mb-5 inline-flex rounded-lg border border-white/10 bg-white/5 p-1">
+              {(["month", "year"] as Period[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`rounded-md px-4 py-1.5 text-sm font-medium capitalize transition ${
+                    period === p ? "bg-emerald-500 text-black" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Per {p}
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-4">
+              {FIELDS.map((f) => (
+                <div key={f.key}>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-300">{f.label}</label>
+                  <div className="flex items-center rounded-lg border border-white/10 bg-white/5 px-3 focus-within:border-emerald-500/70">
+                    <span className="text-sm text-slate-500">₹</span>
+                    <input
+                      value={vals[f.key]}
+                      onChange={(e) => setVals((v) => ({ ...v, [f.key]: e.target.value.replace(/[^\d.]/g, "") }))}
+                      inputMode="numeric"
+                      placeholder="0"
+                      className="w-full bg-transparent px-2 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none"
+                    />
+                  </div>
                 </div>
+              ))}
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-300">Tax rate (%)</label>
+                <input
+                  value={taxRatePct}
+                  onChange={(e) => setTaxRatePct(e.target.value.replace(/[^\d.]/g, ""))}
+                  inputMode="numeric"
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:border-emerald-500/70 focus:outline-none"
+                />
               </div>
-            ))}
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Tax rate (%)</label>
-              <input
-                value={taxRatePct}
-                onChange={(e) => setTaxRatePct(e.target.value.replace(/[^\d.]/g, ""))}
-                inputMode="numeric"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none"
-              />
             </div>
-          </div>
+          </section>
+
+          {/* Results */}
+          <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+            <div className="mb-5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-xs font-bold text-black">2</span>
+                <h2 className="text-base font-semibold">Your P&amp;L ({period})</h2>
+              </div>
+              {!loss ? <TrendingUp className="text-emerald-400" size={18} /> : <TrendingDown className="text-slate-400" size={18} />}
+            </div>
+
+            <div className="space-y-2.5">
+              <Row label="Revenue" value={results.revenue} />
+              <Row label="Employee cost" value={results.employeeCost} />
+              <Row label="Operation cost" value={results.operationCost} />
+              <Row label="Marketing & BD cost" value={results.marketingBdCost} />
+              <Row label="Gross profit" value={results.grossProfit} strong tone="good" />
+              <Row label="Net tax" value={results.netTax} />
+              <Row label="Net profit" value={results.profit} strong tone={loss ? undefined : "good"} />
+            </div>
+
+            <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-center">
+              <span className="text-xs uppercase tracking-widest text-slate-400">Profitability score</span>
+              <p className="mt-1 text-4xl font-black tabular-nums text-emerald-400">
+                {results.score}
+                <span className="text-lg font-bold text-slate-500">/100</span>
+              </p>
+              <span className="mt-2 inline-block rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-500/25">
+                {results.status}
+              </span>
+              <p className="mt-2 text-xs text-slate-500">{results.profitMarginPct}% net margin</p>
+            </div>
+
+            {done ? (
+              <div className="mt-5 flex items-center justify-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm font-medium text-emerald-300">
+                <CheckCircle2 size={16} /> {emailed ? "Sent to your email + our stall screen!" : "Saved to our stall screen!"}
+              </div>
+            ) : (
+              <button
+                onClick={() => submit.mutate()}
+                disabled={!canSubmit || submit.isPending}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 py-3 text-sm font-semibold text-black transition hover:bg-emerald-400 disabled:opacity-50"
+              >
+                {submit.isPending ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                Email me these results
+              </button>
+            )}
+          </section>
         </div>
 
-        {/* Results */}
-        <div className="rounded-2xl bg-white p-6 shadow-xl">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-gray-500">Your P&amp;L ({period})</h2>
-            {profitable ? <TrendingUp className="text-emerald-500" size={18} /> : <TrendingDown className="text-rose-500" size={18} />}
-          </div>
-
-          <div className="space-y-2.5">
-            <Row label="Revenue" value={results.revenue} />
-            <Row label="Employee cost" value={results.employeeCost} />
-            <Row label="Operation cost" value={results.operationCost} />
-            <Row label="Marketing & BD cost" value={results.marketingBdCost} />
-            <Row label="Gross profit" value={results.grossProfit} strong tone={results.grossProfit >= 0 ? "good" : "bad"} />
-            <Row label="Net tax" value={results.netTax} />
-            <Row label="Net profit" value={results.profit} strong tone={profitable ? "good" : "bad"} />
-          </div>
-
-          <div className="mt-3 rounded-lg bg-slate-50 p-3 text-center">
-            <span className="text-xs text-gray-500">Net margin</span>
-            <p className={`text-2xl font-black ${profitable ? "text-emerald-600" : "text-rose-600"}`}>
-              {results.profitMarginPct}%
-            </p>
-          </div>
-
-          {done ? (
-            <div className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-emerald-50 p-3 text-sm font-medium text-emerald-700">
-              <CheckCircle2 size={16} /> {emailed ? "Sent to your email + our stall screen!" : "Saved to our stall screen!"}
-            </div>
-          ) : (
-            <button
-              onClick={() => submit.mutate()}
-              disabled={!canSubmit || submit.isPending}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {submit.isPending ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-              Email me these results
-            </button>
-          )}
-        </div>
+        <p className="mt-6 text-center text-xs text-slate-600">Everything runs in your browser · {session.data?.event.name ?? "Rath Infotech"}</p>
       </div>
     </div>
   );

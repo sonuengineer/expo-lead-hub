@@ -49,9 +49,9 @@ export function BoothLanding() {
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white shadow-lg">
             <Calculator size={32} />
           </div>
-          <h2 className="text-2xl font-bold">Partnership Profitability Calculator</h2>
+          <h2 className="text-2xl font-bold">Profitability Calculator</h2>
           <p className="text-white/60">
-            Enter your deal numbers and instantly see your profit and a partnership score.
+            Enter your numbers and instantly see your profit, costs and margin.
           </p>
           <span className="mt-auto inline-flex items-center gap-1.5 font-semibold text-emerald-300 group-hover:gap-2.5">
             Start <ArrowRight size={18} />

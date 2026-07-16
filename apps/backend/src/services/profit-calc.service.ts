@@ -16,10 +16,13 @@ export interface ProfitResults {
   operationCost: number;
   marketingBdCost: number;
   totalCost: number;
-  grossProfit: number; // revenue − operating costs
+  grossProfit: number; // revenue − operating costs (never negative — see isLoss)
   netTax: number; // tax on gross profit (0 when a loss)
-  profit: number; // net profit after tax
-  profitMarginPct: number;
+  profit: number; // net profit after tax (never negative)
+  profitMarginPct: number; // 0 when a loss
+  isLoss: boolean; // true when raw profit < 0 (internal — we still show 0 to clients)
+  score: number; // 0..100 gamified score from margin
+  status: string; // positive label: Excellent / Good / Healthy / Break Even
 }
 
 const n = (v: unknown): number => {
@@ -35,10 +38,24 @@ export function computeProfit(input: Partial<ProfitInputs>): ProfitResults {
   const taxRatePct = Math.min(100, n(input.taxRatePct));
 
   const totalCost = employeeCost + operationCost + marketingBdCost;
-  const grossProfit = revenue - totalCost;
+
+  // Client-friendly rule (from the old calculator): never surface a negative.
+  // Clamp losses to 0 and label them "Break Even" instead of showing red numbers.
+  const rawGross = revenue - totalCost;
+  const isLoss = rawGross < 0;
+  const grossProfit = Math.max(0, rawGross);
   const netTax = grossProfit > 0 ? Math.round((grossProfit * taxRatePct) / 100) : 0;
-  const profit = grossProfit - netTax;
-  const profitMarginPct = revenue > 0 ? Math.round((profit / revenue) * 1000) / 10 : 0;
+  const profit = Math.max(0, grossProfit - netTax);
+  const profitMarginPct = revenue > 0 && !isLoss ? Math.round((profit / revenue) * 1000) / 10 : 0;
+
+  const score = revenue > 0 && !isLoss ? Math.round(Math.min(100, profitMarginPct * 2.2)) : 0;
+  let status = "Break Even";
+  if (revenue > 0 && !isLoss) {
+    if (profitMarginPct >= 40) status = "Excellent";
+    else if (profitMarginPct >= 25) status = "Good";
+    else if (profitMarginPct >= 10) status = "Healthy";
+    else status = "Break Even";
+  }
 
   return {
     revenue,
@@ -50,6 +67,9 @@ export function computeProfit(input: Partial<ProfitInputs>): ProfitResults {
     netTax,
     profit,
     profitMarginPct,
+    isLoss,
+    score,
+    status,
   };
 }
 

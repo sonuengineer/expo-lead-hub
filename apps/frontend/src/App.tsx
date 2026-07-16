@@ -54,7 +54,7 @@ export default function App() {
         <Route path="/tv" element={<TvDisplay />} />
         <Route path="/ai/report/:id" element={<AnalysisReportPage />} />
         <Route path="/booth" element={<BoothLanding />} />
-        <Route path="/booth/calculator" element={<PartnershipCalculator />} />
+        <Route path="/booth/calculator" element={<ProfitCalculator />} />
         <Route
           path="/"
           element={
@@ -76,6 +76,7 @@ export default function App() {
           <Route path="sync" element={<RequireRole roles={ADMIN}><SyncPage /></RequireRole>} />
           <Route path="audit" element={<RequireRole roles={ADMIN}><AuditLogPage /></RequireRole>} />
           <Route path="automation" element={<RequireRole roles={ADMIN}><AutomationPage /></RequireRole>} />
+          <Route path="partnership-calc" element={<RequireRole roles={ADMIN}><PartnershipCalculator /></RequireRole>} />
           <Route path="users" element={<RequireRole roles={["SUPER_ADMIN"]}><UsersPage /></RequireRole>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

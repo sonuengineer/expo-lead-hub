@@ -99,58 +99,47 @@ export function PublicScoreGame() {
     );
   }
 
+  const input =
+    "w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:border-indigo-400/70 focus:outline-none";
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 to-indigo-950 p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl sm:p-8">
+    <div className="relative flex min-h-screen items-center justify-center bg-[#070b11] p-4 text-white">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(60rem_40rem_at_50%_-10%,rgba(99,102,241,0.12),transparent)]" />
+      <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/15 text-indigo-300 ring-1 ring-indigo-500/30">
             <Sparkles size={24} />
           </div>
-          <h1 className="text-xl font-bold text-gray-900">AI Website Score</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold tracking-tight">AI Website Score</h1>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-slate-400">
             {session.data?.visitor.name ? `${session.data.visitor.name}, see ` : "See "}
             how your site stacks up against a competitor — in under 90 seconds.
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+          <div className="mb-4 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-300">{error}</div>
         )}
 
         <div className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Your website</label>
-            <input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="yourcompany.com"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            />
+            <label className="mb-1.5 block text-sm font-medium text-slate-300">Your website</label>
+            <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="yourcompany.com" className={input} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Competitor website</label>
-            <input
-              value={competitorUrl}
-              onChange={(e) => setCompetitorUrl(e.target.value)}
-              placeholder="competitor.com"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            />
+            <label className="mb-1.5 block text-sm font-medium text-slate-300">Competitor website</label>
+            <input value={competitorUrl} onChange={(e) => setCompetitorUrl(e.target.value)} placeholder="competitor.com" className={input} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              2nd competitor <span className="font-normal text-gray-400">(optional)</span>
+            <label className="mb-1.5 block text-sm font-medium text-slate-300">
+              2nd competitor <span className="font-normal text-slate-500">(optional)</span>
             </label>
-            <input
-              value={competitorUrl2}
-              onChange={(e) => setCompetitorUrl2(e.target.value)}
-              placeholder="another-competitor.com"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            />
+            <input value={competitorUrl2} onChange={(e) => setCompetitorUrl2(e.target.value)} placeholder="another-competitor.com" className={input} />
           </div>
           <button
             onClick={() => start.mutate()}
             disabled={!canStart || start.isPending}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-500 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-50"
           >
             {start.isPending ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
             Analyze my website

@@ -19,6 +19,9 @@ export interface ProfitResults {
   netTax: number;
   profit: number;
   profitMarginPct: number;
+  isLoss: boolean;
+  score: number;
+  status: string;
 }
 
 const n = (v: unknown): number => {
@@ -34,12 +37,37 @@ export function computeProfit(input: Partial<ProfitInputs>): ProfitResults {
   const taxRatePct = Math.min(100, n(input.taxRatePct));
 
   const totalCost = employeeCost + operationCost + marketingBdCost;
-  const grossProfit = revenue - totalCost;
-  const netTax = grossProfit > 0 ? Math.round((grossProfit * taxRatePct) / 100) : 0;
-  const profit = grossProfit - netTax;
-  const profitMarginPct = revenue > 0 ? Math.round((profit / revenue) * 1000) / 10 : 0;
 
-  return { revenue, employeeCost, operationCost, marketingBdCost, totalCost, grossProfit, netTax, profit, profitMarginPct };
+  // Never show a negative to the client — clamp losses to 0 and call it "Break Even".
+  const rawGross = revenue - totalCost;
+  const isLoss = rawGross < 0;
+  const grossProfit = Math.max(0, rawGross);
+  const netTax = grossProfit > 0 ? Math.round((grossProfit * taxRatePct) / 100) : 0;
+  const profit = Math.max(0, grossProfit - netTax);
+  const profitMarginPct = revenue > 0 && !isLoss ? Math.round((profit / revenue) * 1000) / 10 : 0;
+
+  const score = revenue > 0 && !isLoss ? Math.round(Math.min(100, profitMarginPct * 2.2)) : 0;
+  let status = "Break Even";
+  if (revenue > 0 && !isLoss) {
+    if (profitMarginPct >= 40) status = "Excellent";
+    else if (profitMarginPct >= 25) status = "Good";
+    else if (profitMarginPct >= 10) status = "Healthy";
+  }
+
+  return {
+    revenue,
+    employeeCost,
+    operationCost,
+    marketingBdCost,
+    totalCost,
+    grossProfit,
+    netTax,
+    profit,
+    profitMarginPct,
+    isLoss,
+    score,
+    status,
+  };
 }
 
 export function inr(v: number): string {

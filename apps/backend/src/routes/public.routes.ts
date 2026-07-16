@@ -532,6 +532,7 @@ router.post(
         `Gross profit: ${inr(results.grossProfit)}`,
         `Net tax: ${inr(results.netTax)}`,
         `Net profit: ${inr(results.profit)} (${results.profitMarginPct}% margin)`,
+        `Profitability: ${results.status} (${results.score}/100)`,
         "",
         "Want to improve these numbers? Let's talk.",
         "",
