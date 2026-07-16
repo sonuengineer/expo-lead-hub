@@ -1,28 +1,29 @@
-// Profitability Calculator (booth Game 2). Simple, authoritative P&L math the
-// server computes so the emailed report + TV display can't be spoofed by the
-// client. All figures share one period (e.g. monthly) — the UI labels it.
+// Agency Partnership Profitability Calculator (booth Game 2).
+// Shows an agency how profitable it is to partner with Rath Infotech vs running
+// an in-house team. All monthly figures. Server-computed so the emailed/TV
+// numbers can't be spoofed. Never surfaces a negative — a loss shows as ₹0.
+
+// Rath Infotech's fee per client managed (₹).
+export const RATH_FEE_PER_CLIENT = 35000;
 
 export interface ProfitInputs {
-  revenue: number;
+  clients: number;
+  avgRetainer: number; // average monthly retainer per client
   employeeCost: number;
-  operationCost: number;
-  marketingBdCost: number;
-  taxRatePct: number; // e.g. 25 for 25%
+  operationalCost: number;
+  miscCost: number;
+  rathFeePerClient: number; // editable; defaults to RATH_FEE_PER_CLIENT
+  period: "month" | "year"; // figures are scaled ×12 for "year"
 }
 
 export interface ProfitResults {
-  revenue: number;
-  employeeCost: number;
-  operationCost: number;
-  marketingBdCost: number;
-  totalCost: number;
-  grossProfit: number; // revenue − operating costs (never negative — see isLoss)
-  netTax: number; // tax on gross profit (0 when a loss)
-  profit: number; // net profit after tax (never negative)
-  profitMarginPct: number; // 0 when a loss
-  isLoss: boolean; // true when raw profit < 0 (internal — we still show 0 to clients)
-  score: number; // 0..100 gamified score from margin
-  status: string; // positive label: Excellent / Good / Healthy / Break Even
+  clients: number;
+  revenue: number; // clients × retainer
+  rathCharges: number; // clients × RATH_FEE_PER_CLIENT
+  internalExpenses: number; // employee + operational + misc
+  totalExpenses: number; // internal + rath charges
+  profit: number; // revenue − total expenses (never negative)
+  isLoss: boolean; // true when the raw profit was < 0
 }
 
 const n = (v: unknown): number => {
@@ -31,45 +32,29 @@ const n = (v: unknown): number => {
 };
 
 export function computeProfit(input: Partial<ProfitInputs>): ProfitResults {
-  const revenue = n(input.revenue);
+  const clients = n(input.clients);
+  const avgRetainer = n(input.avgRetainer);
   const employeeCost = n(input.employeeCost);
-  const operationCost = n(input.operationCost);
-  const marketingBdCost = n(input.marketingBdCost);
-  const taxRatePct = Math.min(100, n(input.taxRatePct));
+  const operationalCost = n(input.operationalCost);
+  const miscCost = n(input.miscCost);
+  const fee = n(input.rathFeePerClient); // entered manually — no default
+  const mult = input.period === "year" ? 12 : 1; // monthly figures scaled for yearly
 
-  const totalCost = employeeCost + operationCost + marketingBdCost;
-
-  // Client-friendly rule (from the old calculator): never surface a negative.
-  // Clamp losses to 0 and label them "Break Even" instead of showing red numbers.
-  const rawGross = revenue - totalCost;
-  const isLoss = rawGross < 0;
-  const grossProfit = Math.max(0, rawGross);
-  const netTax = grossProfit > 0 ? Math.round((grossProfit * taxRatePct) / 100) : 0;
-  const profit = Math.max(0, grossProfit - netTax);
-  const profitMarginPct = revenue > 0 && !isLoss ? Math.round((profit / revenue) * 1000) / 10 : 0;
-
-  const score = revenue > 0 && !isLoss ? Math.round(Math.min(100, profitMarginPct * 2.2)) : 0;
-  let status = "Break Even";
-  if (revenue > 0 && !isLoss) {
-    if (profitMarginPct >= 40) status = "Excellent";
-    else if (profitMarginPct >= 25) status = "Good";
-    else if (profitMarginPct >= 10) status = "Healthy";
-    else status = "Break Even";
-  }
+  const revenue = clients * avgRetainer;
+  const rathCharges = clients * fee;
+  const internalExpenses = employeeCost + operationalCost + miscCost;
+  const totalExpenses = internalExpenses + rathCharges;
+  const raw = revenue - totalExpenses;
+  const isLoss = raw < 0;
 
   return {
-    revenue,
-    employeeCost,
-    operationCost,
-    marketingBdCost,
-    totalCost,
-    grossProfit,
-    netTax,
-    profit,
-    profitMarginPct,
+    clients,
+    revenue: Math.round(revenue * mult),
+    rathCharges: Math.round(rathCharges * mult),
+    internalExpenses: Math.round(internalExpenses * mult),
+    totalExpenses: Math.round(totalExpenses * mult),
+    profit: Math.max(0, Math.round(raw * mult)),
     isLoss,
-    score,
-    status,
   };
 }
 

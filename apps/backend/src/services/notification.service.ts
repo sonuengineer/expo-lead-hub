@@ -29,7 +29,7 @@ interface ChannelConfig {
 }
 
 const DEFAULT_WELCOME =
-  "Hi {name}! Thanks for visiting {event}. We've received your details and our team will get in touch soon.\n\nPlay our 90-second AI website challenge here: {link}";
+  "Hi {name}! Thanks for visiting {event}. We've received your details and our team will get in touch soon.";
 const DEFAULT_REPORT = "Here's what we captured:\nName: {name}\nCompany: {company}";
 
 // Email gets a longer, signed follow-up by default (WhatsApp stays short above).
@@ -40,8 +40,6 @@ You walked into {event} today. We are glad you did.
 Thank you for taking the time to stop by and have a conversation with us. In a room full of people moving fast, that meant something.
 
 Whatever we spoke about at the stall, that conversation does not have to end there.
-
-While you are here, try our 90-second AI website challenge and pick a game: {link}
 
 A quick 30-minute call is all it takes to figure out if there is something here worth building together. No pressure, no pitch deck, just a straight conversation.
 

@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Download, Search, Loader2, Trash2 } from "lucide-react";
+import { Download, Search, Loader2, Trash2, Gamepad2, Mail, Copy } from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "../lib/api-client";
+import { appUrl } from "../lib/app-url";
 import { useAuthStore } from "../stores/auth.store";
 import { LeadStatusBadge, SourceBadge, formatDate } from "../components/badges";
 
@@ -23,6 +24,9 @@ interface LeadRow {
   event?: { id: string; name: string } | null;
   booth?: { id: string; name: string } | null;
   visitorType?: { id: string; name: string; color?: string | null } | null;
+  submittedByUser?: { id: string; name: string } | null;
+  playToken?: string | null;
+  gamePlayed?: boolean;
 }
 
 export function LeadsPage() {
@@ -75,6 +79,12 @@ export function LeadsPage() {
       deleteMutation.mutate(lead.id);
     }
   };
+
+  const sendReport = useMutation({
+    mutationFn: (id: string) => api.leads.sendReport(id),
+    onSuccess: (res: any) => toast.success(res?.data?.message ?? "Report sent"),
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? "Couldn't send report"),
+  });
 
   const resetPageAnd = (fn: () => void) => {
     fn();
@@ -181,24 +191,24 @@ export function LeadsPage() {
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
             <tr>
-              {["Name", "Company", "Contact", "Event", "Visitor Type", "Source", "Status", "Date"].map((h) => (
+              {["Name", "Company", "Contact", "Event", "Visitor Type", "Captured by", "Source", "Status", "Date"].map((h) => (
                 <th key={h} className="px-4 py-3 text-left font-semibold text-gray-600">
                   {h}
                 </th>
               ))}
-              {canDelete && <th className="px-4 py-3 text-right font-semibold text-gray-600">Actions</th>}
+              <th className="px-4 py-3 text-right font-semibold text-gray-600">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {isLoading ? (
               <tr>
-                <td colSpan={canDelete ? 9 : 8} className="px-4 py-10 text-center text-gray-400">
+                <td colSpan={10} className="px-4 py-10 text-center text-gray-400">
                   Loading leads…
                 </td>
               </tr>
             ) : leads.length === 0 ? (
               <tr>
-                <td colSpan={canDelete ? 9 : 8} className="px-4 py-10 text-center text-gray-400">
+                <td colSpan={10} className="px-4 py-10 text-center text-gray-400">
                   No leads match your filters.
                 </td>
               </tr>
@@ -231,6 +241,9 @@ export function LeadsPage() {
                       "—"
                     )}
                   </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {lead.submittedByUser?.name ?? <span className="text-gray-400">Public (QR)</span>}
+                  </td>
                   <td className="px-4 py-3">
                     <SourceBadge source={lead.source} />
                   </td>
@@ -240,18 +253,68 @@ export function LeadsPage() {
                   <td className="px-4 py-3 whitespace-nowrap text-gray-500">
                     {formatDate(lead.createdAt)}
                   </td>
-                  {canDelete && (
-                    <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1">
+                      {/* Open game — disabled once the game has been played */}
+                      {lead.playToken && !lead.gamePlayed ? (
+                        <a
+                          href={appUrl(`/play/${lead.playToken}`)}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Open game on this device"
+                          className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+                        >
+                          <Gamepad2 size={14} /> Play
+                        </a>
+                      ) : (
+                        <span
+                          title={lead.gamePlayed ? "Game already played" : "No game session"}
+                          className="inline-flex items-center gap-1 rounded-lg border border-gray-100 px-2 py-1 text-xs font-medium text-gray-300"
+                        >
+                          <Gamepad2 size={14} /> {lead.gamePlayed ? "Played" : "Play"}
+                        </span>
+                      )}
+
+                      {/* Copy the play link to share to the visitor's own phone */}
+                      {lead.playToken && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(appUrl(`/play/${lead.playToken}`));
+                              toast.success("Play link copied");
+                            } catch {
+                              toast.error("Couldn't copy — copy it manually from the address bar");
+                            }
+                          }}
+                          title="Copy play link (share to their phone)"
+                          className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                        >
+                          <Copy size={14} /> Link
+                        </button>
+                      )}
+
+                      {/* Send report — only when a game result exists */}
                       <button
-                        onClick={() => confirmDelete(lead)}
-                        disabled={deleteMutation.isPending}
-                        title="Delete lead"
-                        className="inline-flex items-center rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                        onClick={() => sendReport.mutate(lead.id)}
+                        disabled={!lead.gamePlayed || sendReport.isPending}
+                        title={lead.gamePlayed ? "Email the report to this lead" : "No report yet"}
+                        className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
                       >
-                        <Trash2 size={16} />
+                        <Mail size={14} /> Send
                       </button>
-                    </td>
-                  )}
+
+                      {canDelete && (
+                        <button
+                          onClick={() => confirmDelete(lead)}
+                          disabled={deleteMutation.isPending}
+                          title="Delete lead"
+                          className="inline-flex items-center rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))
             )}

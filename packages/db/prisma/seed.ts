@@ -25,7 +25,7 @@ async function main() {
   // ── Create a demo event ────────────────
   const event = await prisma.event.create({
     data: {
-      name: "Demo Expo 2026",
+      name: "MMD 2026",
       description: "A demonstration exhibition event",
       organizer: "Demo Corp",
       venue: "Convention Center",
@@ -43,14 +43,15 @@ async function main() {
   // ── Create default visitor types ───────
   const visitorTypes = [
     { name: "End User", slug: "end-user", color: "#3B82F6" },
-    { name: "Dealer", slug: "dealer", color: "#10B981" },
-    { name: "Distributor", slug: "distributor", color: "#8B5CF6" },
     { name: "Competitor", slug: "competitor", color: "#EF4444" },
-    { name: "OEM", slug: "oem", color: "#F59E0B" },
-    { name: "Vendor", slug: "vendor", color: "#6366F1" },
-    { name: "Consultant", slug: "consultant", color: "#EC4899" },
-    { name: "Architect", slug: "architect", color: "#14B8A6" },
-    { name: "Builder", slug: "builder", color: "#F97316" },
+    // Commented out for now — re-enable if needed:
+    // { name: "Dealer", slug: "dealer", color: "#10B981" },
+    // { name: "Distributor", slug: "distributor", color: "#8B5CF6" },
+    // { name: "OEM", slug: "oem", color: "#F59E0B" },
+    // { name: "Vendor", slug: "vendor", color: "#6366F1" },
+    // { name: "Consultant", slug: "consultant", color: "#EC4899" },
+    // { name: "Architect", slug: "architect", color: "#14B8A6" },
+    // { name: "Builder", slug: "builder", color: "#F97316" },
   ];
 
   for (let i = 0; i < visitorTypes.length; i++) {

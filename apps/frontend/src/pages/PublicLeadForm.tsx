@@ -4,9 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { CheckCircle2, AlertTriangle, Loader2, Gamepad2, Phone, Search } from "lucide-react";
 import { publicApi } from "../lib/api-client";
 import { DynamicForm, type FormFieldDef } from "../components/DynamicForm";
-import { QrImage } from "../components/QrImage";
 import { applyContactToFields, bniToContact, type Contact } from "../lib/contact-fields";
-import { appUrl } from "../lib/app-url";
 
 interface FormPayload {
   qrCode: { id: string; shortCode: string; eventId: string; boothId: string; visitorTypeId: string };
@@ -27,7 +25,6 @@ function Shell({ children }: { children: React.ReactNode }) {
 export function PublicLeadForm() {
   const { shortCode } = useParams<{ shortCode: string }>();
   const [submitted, setSubmitted] = useState(false);
-  const [playLink, setPlayLink] = useState<string | null>(null);
   const [playToken, setPlayToken] = useState<string | null>(null);
 
   // Quick-start: prefill the form from a phone lookup.
@@ -57,11 +54,7 @@ export function PublicLeadForm() {
       });
     },
     onSuccess: (res) => {
-      const link: string | undefined = res?.data?.playLink;
-      const token: string | undefined = res?.data?.playToken;
-      setPlayToken(token ?? null);
-      // QR needs an absolute URL (scanned on another device); prefer the API's.
-      setPlayLink(link ?? (token ? appUrl(`/play/${token}`) : null));
+      setPlayToken(res?.data?.playToken ?? null);
       setSubmitted(true);
     },
   });
@@ -131,7 +124,6 @@ export function PublicLeadForm() {
           <h1 className="text-xl font-bold text-gray-900">Thank you!</h1>
           <p className="mt-2 text-sm text-gray-600">
             Your details have been submitted to <span className="font-medium">{data.event.name}</span>.
-            We've sent you a WhatsApp/email too.
           </p>
 
           {playToken && (
@@ -140,26 +132,18 @@ export function PublicLeadForm() {
               <p className="mt-1 text-xs text-indigo-700">
                 Get your instant AI website score, or run the profitability calculator.
               </p>
-              {/* In-app navigation (no reload, no login) for the visitor on this device. */}
               <Link
                 to={`/play/${playToken}`}
                 className="mt-4 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
               >
                 <Gamepad2 size={16} /> Play now
               </Link>
-              {playLink && (
-                <div className="mt-4 flex flex-col items-center">
-                  <QrImage value={playLink} size={132} />
-                  <p className="mt-2 text-[11px] text-indigo-400">Or scan on another phone</p>
-                </div>
-              )}
             </div>
           )}
 
           <button
             onClick={() => {
               setSubmitted(false);
-              setPlayLink(null);
               setPlayToken(null);
             }}
             className="mt-6 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"

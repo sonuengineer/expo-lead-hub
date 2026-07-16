@@ -230,6 +230,7 @@ export const api = {
     export: (filters?: any) =>
       getApiClient().post("/leads/export", filters ?? {}, { responseType: "blob" }),
     remove: (id: string) => getApiClient().delete(`/leads/${id}`),
+    sendReport: (id: string) => getApiClient().post(`/leads/${id}/send-report`),
   },
 
   // Audit Logs

@@ -4,6 +4,7 @@ import { LEAD_FORM_FIELDS } from "@elc/shared";
 import { authenticate, requireRole } from "../middleware/auth";
 import { AppError } from "../middleware/error-handler";
 import { asyncHandler } from "../utils/async-handler";
+import { sendReportsForLead } from "../services/report-email.service";
 
 const router = Router();
 router.use(authenticate);
@@ -92,10 +93,12 @@ router.get(
           crmSynced: true,
           sheetsSynced: true,
           rawFormData: true,
+          playToken: true,
           createdAt: true,
           event: { select: { id: true, name: true } },
           booth: { select: { id: true, name: true } },
           visitorType: { select: { id: true, name: true, color: true } },
+          submittedByUser: { select: { id: true, name: true } },
         },
         orderBy: { [orderField]: orderDir },
         skip: parseInt(skip) || 0,
@@ -103,6 +106,17 @@ router.get(
       }),
       prisma.lead.count({ where }),
     ]);
+
+    // Which of these leads have a completed game (to disable "Open game" and
+    // enable "Send report").
+    const tokens = leads.map((l: any) => l.playToken).filter(Boolean) as string[];
+    const played = tokens.length
+      ? await prisma.gameResult.findMany({
+          where: { playToken: { in: tokens }, status: "COMPLETED" },
+          select: { playToken: true },
+        })
+      : [];
+    const playedSet = new Set(played.map((g) => g.playToken));
 
     res.json({
       leads: leads.map((l: any) => ({
@@ -115,6 +129,9 @@ router.get(
         event: l.event,
         booth: l.booth,
         visitorType: l.visitorType,
+        submittedByUser: l.submittedByUser,
+        playToken: l.playToken,
+        gamePlayed: l.playToken ? playedSet.has(l.playToken) : false,
         ...summarize(l.rawFormData),
       })),
       total,
@@ -232,6 +249,17 @@ router.get(
     });
 
     res.json({ lead, summary: summarize(lead.rawFormData), auditTrail });
+  }),
+);
+
+// ── POST /api/leads/:id/send-report (Manually re-send the game result email) ──
+router.post(
+  "/:id/send-report",
+  asyncHandler(async (req: Request, res: Response) => {
+    const id = String(req.params.id);
+    const { sent, email, reason } = await sendReportsForLead(id);
+    if (sent === 0) throw new AppError(400, reason ?? "Nothing to send");
+    res.json({ sent, email, message: `Report sent to ${email}` });
   }),
 );
 

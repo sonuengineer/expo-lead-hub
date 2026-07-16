@@ -1,27 +1,26 @@
-// Mirrors the backend profit-calc.service so the UI can show a live preview as
-// the visitor types. The server recomputes authoritatively on submit.
+// Mirrors the backend profit-calc.service for a live UI preview. The server
+// recomputes authoritatively on submit.
+
+export const RATH_FEE_PER_CLIENT = 35000;
 
 export interface ProfitInputs {
-  revenue: number;
+  clients: number;
+  avgRetainer: number;
   employeeCost: number;
-  operationCost: number;
-  marketingBdCost: number;
-  taxRatePct: number;
+  operationalCost: number;
+  miscCost: number;
+  rathFeePerClient: number;
+  period: "month" | "year";
 }
 
 export interface ProfitResults {
+  clients: number;
   revenue: number;
-  employeeCost: number;
-  operationCost: number;
-  marketingBdCost: number;
-  totalCost: number;
-  grossProfit: number;
-  netTax: number;
+  rathCharges: number;
+  internalExpenses: number;
+  totalExpenses: number;
   profit: number;
-  profitMarginPct: number;
   isLoss: boolean;
-  score: number;
-  status: string;
 }
 
 const n = (v: unknown): number => {
@@ -30,43 +29,29 @@ const n = (v: unknown): number => {
 };
 
 export function computeProfit(input: Partial<ProfitInputs>): ProfitResults {
-  const revenue = n(input.revenue);
+  const clients = n(input.clients);
+  const avgRetainer = n(input.avgRetainer);
   const employeeCost = n(input.employeeCost);
-  const operationCost = n(input.operationCost);
-  const marketingBdCost = n(input.marketingBdCost);
-  const taxRatePct = Math.min(100, n(input.taxRatePct));
+  const operationalCost = n(input.operationalCost);
+  const miscCost = n(input.miscCost);
+  const fee = n(input.rathFeePerClient); // entered manually — no default
+  const mult = input.period === "year" ? 12 : 1;
 
-  const totalCost = employeeCost + operationCost + marketingBdCost;
-
-  // Never show a negative to the client — clamp losses to 0 and call it "Break Even".
-  const rawGross = revenue - totalCost;
-  const isLoss = rawGross < 0;
-  const grossProfit = Math.max(0, rawGross);
-  const netTax = grossProfit > 0 ? Math.round((grossProfit * taxRatePct) / 100) : 0;
-  const profit = Math.max(0, grossProfit - netTax);
-  const profitMarginPct = revenue > 0 && !isLoss ? Math.round((profit / revenue) * 1000) / 10 : 0;
-
-  const score = revenue > 0 && !isLoss ? Math.round(Math.min(100, profitMarginPct * 2.2)) : 0;
-  let status = "Break Even";
-  if (revenue > 0 && !isLoss) {
-    if (profitMarginPct >= 40) status = "Excellent";
-    else if (profitMarginPct >= 25) status = "Good";
-    else if (profitMarginPct >= 10) status = "Healthy";
-  }
+  const revenue = clients * avgRetainer;
+  const rathCharges = clients * fee;
+  const internalExpenses = employeeCost + operationalCost + miscCost;
+  const totalExpenses = internalExpenses + rathCharges;
+  const raw = revenue - totalExpenses;
+  const isLoss = raw < 0;
 
   return {
-    revenue,
-    employeeCost,
-    operationCost,
-    marketingBdCost,
-    totalCost,
-    grossProfit,
-    netTax,
-    profit,
-    profitMarginPct,
+    clients,
+    revenue: Math.round(revenue * mult),
+    rathCharges: Math.round(rathCharges * mult),
+    internalExpenses: Math.round(internalExpenses * mult),
+    totalExpenses: Math.round(totalExpenses * mult),
+    profit: Math.max(0, Math.round(raw * mult)),
     isLoss,
-    score,
-    status,
   };
 }
 

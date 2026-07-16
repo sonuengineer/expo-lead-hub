@@ -140,7 +140,7 @@ export function UsersPage() {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-gray-500">{formatDate(u.createdAt)}</td>
                     <td className="px-4 py-3">
-                      {!isSelf && u.role !== "SUPER_ADMIN" && (
+                      {!isSelf && (
                         <div className="flex gap-2">
                           <button
                             onClick={() => {

@@ -357,10 +357,13 @@ router.get(
     const name =
       data.contact_person ?? data.contactPerson ?? data.name ?? data.full_name ?? "";
     const company = data.company_name ?? data.companyName ?? data.company ?? "";
+    const email = data.email ?? data.emailAddress ?? data.email_address ?? "";
+    const phone =
+      data.mobile_number ?? data.mobileNumber ?? data.phone ?? data.phone_number ?? data.mobile ?? "";
 
     res.json({
       token,
-      visitor: { name, company },
+      visitor: { name, company, email, phone },
       event: lead.event,
       games: GAMES,
     });
@@ -532,12 +535,13 @@ router.post(
 // Computes the P&L server-side, records it against the play session (for the TV
 // display), and emails the results to the visitor.
 const calculatorSchema = z.object({
-  revenue: z.number().nonnegative(),
+  clients: z.number().nonnegative().default(0),
+  avgRetainer: z.number().nonnegative().default(0),
   employeeCost: z.number().nonnegative().default(0),
-  operationCost: z.number().nonnegative().default(0),
-  marketingBdCost: z.number().nonnegative().default(0),
-  taxRatePct: z.number().min(0).max(100).default(25),
-  period: z.string().optional(), // "month" | "year" — display label only
+  operationalCost: z.number().nonnegative().default(0),
+  miscCost: z.number().nonnegative().default(0),
+  rathFeePerClient: z.number().nonnegative().default(0),
+  period: z.enum(["month", "year"]).default("month"),
   playToken: z.string().optional(),
   email: z.string().email().optional(),
   // Walk-up entry (no play session) can pass a name/company to capture as a lead.
@@ -625,27 +629,26 @@ router.post(
 
     // Email the results (best-effort).
     if (email && emailService.isEmailConfigured()) {
-      const period = p.period === "year" ? "per year" : "per month";
+      const per = p.period === "year" ? "yearly" : "monthly";
       const text = [
         "Hi,",
         "",
-        `Here is your profitability snapshot (${period}):`,
+        `Here's your Rath Infotech partnership profitability snapshot (${per}):`,
         "",
-        `Revenue: ${inr(results.revenue)}`,
-        `Employee cost: ${inr(results.employeeCost)}`,
-        `Operation cost: ${inr(results.operationCost)}`,
-        `Marketing & BD cost: ${inr(results.marketingBdCost)}`,
-        `Gross profit: ${inr(results.grossProfit)}`,
-        `Net tax: ${inr(results.netTax)}`,
-        `Net profit: ${inr(results.profit)} (${results.profitMarginPct}% margin)`,
-        `Profitability: ${results.status} (${results.score}/100)`,
+        `Clients: ${results.clients}`,
+        `Total ${per} revenue: ${inr(results.revenue)}`,
+        `Rath Infotech charges: ${inr(results.rathCharges)}`,
+        `Your internal expenses: ${inr(results.internalExpenses)}`,
+        `Total ${per} profit: ${inr(results.profit)}`,
         "",
-        "Want to improve these numbers? Let's talk.",
+        `By partnering with Rath Infotech, you can manage ${results.clients} client${results.clients === 1 ? "" : "s"} and earn an estimated ${per} profit of ${inr(results.profit)} without hiring and managing an in-house development team.`,
+        "",
+        "Ready to increase your agency profits? Let's schedule a demo.",
         "",
         "Rath Infotech and Web Solutions",
       ].join("\n");
       void emailService
-        .sendEmail(email, "Your profitability snapshot", text)
+        .sendEmail(email, "Your partnership profitability snapshot", text)
         .catch((e) => console.error("[calculator] email failed:", (e as Error)?.message));
     }
 
@@ -705,12 +708,13 @@ router.get(
     const calcItems = calcs.map((c) => {
       const p = (c.payload ?? {}) as any;
       const r = p.results ?? {};
+      const margin = r.revenue > 0 ? Math.round((r.profit / r.revenue) * 100) : null;
       return {
         type: "PROFIT_CALC" as const,
         at: c.createdAt,
         revenue: r.revenue ?? null,
         profit: r.profit ?? null,
-        margin: r.profitMarginPct ?? null,
+        margin,
       };
     });
 

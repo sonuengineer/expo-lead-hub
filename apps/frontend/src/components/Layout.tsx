@@ -9,11 +9,9 @@ import {
   ScrollText,
   UserCog,
   Workflow,
-  Flame,
   Sparkles,
   MonitorPlay,
   Gamepad2,
-  Calculator,
   LogOut,
   Menu,
   X,
@@ -29,7 +27,6 @@ const navItems = [
   { to: "/leads", label: "Leads", icon: Users },
   { to: "/scan", label: "Capture Lead", icon: ScanLine },
   { to: "/ai/score", label: "AI Score Game", icon: Gamepad2 },
-  { to: "/ai/roast", label: "Website Roast", icon: Flame },
   { to: "/ai/history", label: "Analysis History", icon: Sparkles },
   { to: "/booth", label: "Booth Mode", icon: MonitorPlay },
   { to: "/qr-codes", label: "QR Codes", icon: QrCode, roles: ADMIN },
@@ -37,7 +34,7 @@ const navItems = [
   { to: "/sync", label: "Sync", icon: RefreshCw, roles: ADMIN },
   { to: "/audit", label: "Audit Log", icon: ScrollText, roles: ADMIN },
   { to: "/automation", label: "Automation", icon: Workflow, roles: ADMIN },
-  { to: "/partnership-calc", label: "Partnership Calc", icon: Calculator, roles: ADMIN },
+  // { to: "/partnership-calc", label: "Partnership Calc", icon: Calculator, roles: ADMIN },
   { to: "/users", label: "Users", icon: UserCog, roles: ["SUPER_ADMIN"] },
 ];
 

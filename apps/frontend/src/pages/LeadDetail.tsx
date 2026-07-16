@@ -3,7 +3,6 @@ import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, ScanLine, Gamepad2 } from "lucide-react";
 import { api } from "../lib/api-client";
 import { appUrl } from "../lib/app-url";
-import { QrImage } from "../components/QrImage";
 import { LeadStatusBadge, SourceBadge, SyncStatusBadge, formatDate } from "../components/badges";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -184,9 +183,7 @@ export function LeadDetailPage() {
 
           {lead.playToken && (
             <Section title="Play on booth screen">
-              <p className="mb-3 text-sm text-gray-500">
-                Open this visitor's game on the booth iPad/TV, or let them scan it on a phone.
-              </p>
+              <p className="mb-3 text-sm text-gray-500">Open this visitor's game on the booth iPad.</p>
               <a
                 href={appUrl(`/play/${lead.playToken}`)}
                 target="_blank"
@@ -195,10 +192,6 @@ export function LeadDetailPage() {
               >
                 <Gamepad2 size={16} /> Open game
               </a>
-              <div className="mt-4 flex flex-col items-center">
-                <QrImage value={appUrl(`/play/${lead.playToken}`)} size={150} />
-                <p className="mt-2 text-xs text-gray-400">Scan to play on a phone</p>
-              </div>
             </Section>
           )}
         </div>

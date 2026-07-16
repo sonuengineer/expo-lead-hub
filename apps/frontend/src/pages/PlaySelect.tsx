@@ -12,7 +12,7 @@ interface Game {
 
 interface PlaySession {
   token: string;
-  visitor: { name: string; company: string };
+  visitor: { name: string; company: string; email?: string; phone?: string };
   event: { id: string; name: string };
   games: Game[];
 }
@@ -81,6 +81,15 @@ export function PlaySelect() {
         <p className="mt-2 text-sm text-slate-400">
           Choose an experience below — results show on our stall screen and land in your inbox.
         </p>
+
+        {/* Captured contact — confirm who this session belongs to. */}
+        {(data.visitor.email || data.visitor.phone) && (
+          <div className="mt-4 inline-flex flex-wrap items-center justify-center gap-x-4 gap-y-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
+            {data.visitor.company && <span className="font-medium text-white">{data.visitor.company}</span>}
+            {data.visitor.email && <span>{data.visitor.email}</span>}
+            {data.visitor.phone && <span>{data.visitor.phone}</span>}
+          </div>
+        )}
       </div>
 
       <div className="mt-8 grid gap-4">

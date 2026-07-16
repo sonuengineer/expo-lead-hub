@@ -65,8 +65,9 @@ export async function searchBni(q: string, limit = 8): Promise<BniLite[]> {
   const out: BniLite[] = [];
   for (const m of cache) {
     const nameHit = m.name.toLowerCase().includes(lower);
+    const emailHit = (m.email ?? "").toLowerCase().includes(lower);
     const phoneHit = byDigits && (m.phoneE164 ?? "").includes(byDigits);
-    if (nameHit || phoneHit) {
+    if (nameHit || emailHit || phoneHit) {
       out.push(m);
       if (out.length >= limit) break;
     }

@@ -150,14 +150,20 @@ export function ScoreReport({ data }: { data: Comparison }) {
   const competitors = data.audit?.competitors ?? [];
 
   return (
-    <div className="space-y-6">
+    <div
+      className="space-y-6 antialiased [font-variant-numeric:tabular-nums] [-webkit-font-smoothing:antialiased]"
+      style={{
+        fontFamily:
+          '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      }}
+    >
       {/* Verdict banner */}
-      <div className={`rounded-2xl p-5 text-center text-white shadow-lg ${youWin ? "bg-gradient-to-r from-emerald-500 to-teal-600" : tie ? "bg-gradient-to-r from-slate-500 to-slate-700" : "bg-gradient-to-r from-orange-500 to-rose-600"}`}>
-        <Trophy className="mx-auto mb-1" size={26} />
-        <h2 className="text-2xl font-black">
-          {youWin ? "🏆 You win!" : tie ? "It's a tie!" : "You're behind — here's how to win"}
+      <div className={`rounded-2xl p-6 text-center text-white shadow-lg ${youWin ? "bg-gradient-to-r from-emerald-500 to-teal-600" : tie ? "bg-gradient-to-r from-slate-500 to-slate-700" : "bg-gradient-to-r from-orange-500 to-rose-600"}`}>
+        <Trophy className="mx-auto mb-1.5" size={26} />
+        <h2 className="text-2xl font-bold tracking-tight">
+          {youWin ? "You win" : tie ? "It's a tie" : "Here's how to win"}
         </h2>
-        <p className="mx-auto mt-1 max-w-2xl text-sm text-white/80">{verdict.reasoning}</p>
+        <p className="mx-auto mt-1.5 max-w-2xl text-sm leading-relaxed text-white/80">{verdict.reasoning}</p>
       </div>
 
       {/* Big scores head-to-head */}

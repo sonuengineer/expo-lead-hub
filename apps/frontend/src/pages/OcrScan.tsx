@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Camera, ScanLine, Loader2, CheckCircle2, RotateCcw } from "lucide-react";
+import { Camera, ScanLine, Loader2, CheckCircle2, RotateCcw, Gamepad2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "../lib/api-client";
 import { downscale } from "../lib/ocr";
 import { useAuthStore } from "../stores/auth.store";
 import { DynamicForm, type FormFieldDef } from "../components/DynamicForm";
-import { QrImage } from "../components/QrImage";
-import { appUrl } from "../lib/app-url";
+import { Link } from "react-router-dom";
 
 interface ParsedData {
   companyName?: string;
@@ -37,6 +36,15 @@ function injectOcr(fields: FormFieldDef[], parsed: ParsedData): FormFieldDef[] {
   });
 }
 
+// Basic contact fields used for manual entry when an event's form has none.
+const DEFAULT_MANUAL_FIELDS: FormFieldDef[] = [
+  { id: "m_name", fieldKey: "contact_person", fieldType: "TEXT", label: "Name", isRequired: true },
+  { id: "m_company", fieldKey: "company_name", fieldType: "TEXT", label: "Company", isRequired: false },
+  { id: "m_email", fieldKey: "email", fieldType: "EMAIL", label: "Email", isRequired: false },
+  { id: "m_phone", fieldKey: "mobile_number", fieldType: "PHONE", label: "Mobile", isRequired: false },
+  { id: "m_designation", fieldKey: "designation", fieldType: "TEXT", label: "Designation", isRequired: false },
+];
+
 export function OcrScanPage() {
   const user = useAuthStore((s) => s.user);
   const [eventId, setEventId] = useState("");
@@ -49,7 +57,7 @@ export function OcrScanPage() {
   const [showRaw, setShowRaw] = useState(false);
   const [done, setDone] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [playLink, setPlayLink] = useState<string | null>(null);
+  const [playToken, setPlayToken] = useState<string | null>(null);
   const [manual, setManual] = useState(false); // staff typing the lead by hand (no scan)
 
   const { data: eventsData } = useQuery({
@@ -143,8 +151,7 @@ export function OcrScanPage() {
         source: manual ? "MANUAL" : "OCR_SCAN",
       }),
     onSuccess: (res: any) => {
-      const token: string | undefined = res?.data?.playToken;
-      setPlayLink(res?.data?.playLink ?? (token ? appUrl(`/play/${token}`) : null));
+      setPlayToken(res?.data?.playToken ?? null);
       setDone(true);
     },
     onError: (err: any) => toast.error(err?.response?.data?.message ?? "Submit failed"),
@@ -154,7 +161,7 @@ export function OcrScanPage() {
     onFileChange(null);
     setScan(null);
     setDone(false);
-    setPlayLink(null);
+    setPlayToken(null);
     setManual(false);
   };
 
@@ -163,24 +170,25 @@ export function OcrScanPage() {
       <div className="mx-auto max-w-md rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
         <CheckCircle2 className="mx-auto mb-3 text-green-500" size={48} />
         <h2 className="text-xl font-bold text-gray-900">Lead captured</h2>
-        <p className="mt-2 text-sm text-gray-600">Saved — a WhatsApp/email with their game link is on the way.</p>
+        <p className="mt-2 text-sm text-gray-600">Saved. Now let them play a quick game right here.</p>
 
-        {playLink && (
-          <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50 p-4">
-            <p className="text-sm font-semibold text-indigo-900">Let them play now</p>
-            <p className="mt-0.5 text-xs text-indigo-700">Ask the visitor to scan this on their phone.</p>
-            <div className="mt-3 flex justify-center">
-              <QrImage value={playLink} size={150} />
-            </div>
-          </div>
+        {playToken && (
+          <Link
+            to={`/play/${playToken}`}
+            className="mt-5 inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
+          >
+            <Gamepad2 size={16} /> Play now
+          </Link>
         )}
 
-        <button
-          onClick={reset}
-          className="mt-6 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-        >
-          <RotateCcw size={16} /> Scan another
-        </button>
+        <div className="mt-6">
+          <button
+            onClick={reset}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <RotateCcw size={16} /> Capture another
+          </button>
+        </div>
       </div>
     );
   }
@@ -278,15 +286,28 @@ export function OcrScanPage() {
             <h3 className="mb-3 font-semibold text-gray-900">2 · Review &amp; save</h3>
             {!scan && !manual ? (
               <p className="py-10 text-center text-sm text-gray-400">Scan a card, or choose “enter details manually”.</p>
-            ) : activeFields.length === 0 ? (
-              <p className="py-10 text-center text-sm text-amber-600">No active form fields for this event.</p>
             ) : (
-              <DynamicForm
-                key={scan ? scanKey : "manual"}
-                fields={scan ? injectOcr(activeFields, scan.parsed) : activeFields}
-                submitting={submitMutation.isPending}
-                onSubmit={(values) => submitMutation.mutate(values)}
-              />
+              (() => {
+                // Manual entry falls back to a basic contact form when the event's
+                // dynamic form has no active fields, so staff can always type a lead.
+                const formFields = scan
+                  ? injectOcr(activeFields, scan.parsed)
+                  : activeFields.length
+                    ? activeFields
+                    : form
+                      ? DEFAULT_MANUAL_FIELDS
+                      : [];
+                return formFields.length === 0 ? (
+                  <p className="py-10 text-center text-sm text-amber-600">This event has no form configured.</p>
+                ) : (
+                  <DynamicForm
+                    key={scan ? scanKey : "manual"}
+                    fields={formFields}
+                    submitting={submitMutation.isPending}
+                    onSubmit={(values) => submitMutation.mutate(values)}
+                  />
+                );
+              })()
             )}
           </div>
         </div>

@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, ArrowLeft } from "lucide-react";
 import { publicApi } from "../lib/api-client";
 import { AuditProgress } from "../components/AuditProgress";
 import { ScoreReport, type Comparison } from "../components/ScoreReport";
 import { FindEntry } from "../components/FindEntry";
 
 interface PlaySession {
-  visitor: { name: string; company: string };
+  visitor: { name: string; company: string; email?: string; phone?: string };
   event: { id: string; name: string };
 }
 
@@ -119,6 +119,12 @@ export function PublicScoreGame() {
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-[#070b11] p-4 text-white">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(60rem_40rem_at_50%_-10%,rgba(99,102,241,0.12),transparent)]" />
+      <Link
+        to={token ? `/play/${token}` : "/booth"}
+        className="absolute left-5 top-5 z-10 inline-flex items-center gap-2 text-lg font-semibold text-slate-300 transition hover:text-white"
+      >
+        <ArrowLeft size={22} /> Back to home
+      </Link>
       <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/15 text-indigo-300 ring-1 ring-indigo-500/30">
@@ -129,6 +135,12 @@ export function PublicScoreGame() {
             {session.data?.visitor.name ? `${session.data.visitor.name}, see ` : "See "}
             how your site stacks up against a competitor — in under 90 seconds.
           </p>
+          {(session.data?.visitor.email || session.data?.visitor.phone) && (
+            <div className="mt-3 inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300">
+              {session.data?.visitor.email && <span>{session.data.visitor.email}</span>}
+              {session.data?.visitor.phone && <span>{session.data.visitor.phone}</span>}
+            </div>
+          )}
         </div>
 
         {error && (
