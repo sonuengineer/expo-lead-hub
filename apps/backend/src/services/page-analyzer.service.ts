@@ -1,5 +1,5 @@
 import axios from "axios";
-import { setting } from "./settings.service";
+import { setting, pageSpeedKeys } from "./settings.service";
 
 export interface PageScores {
   performance: number | null;
@@ -81,10 +81,24 @@ class PageSpeedAnalyzer implements PageAnalyzer {
     const cats = ["performance", "seo", "accessibility", "best-practices"]
       .map((c) => `category=${c}`)
       .join("&");
-    const key = setting("PAGESPEED_API_KEY") ? `&key=${setting("PAGESPEED_API_KEY")}` : "";
-    const requestUrl = `${this.endpoint}?url=${encodeURIComponent(url)}&strategy=${strategy}&${cats}${key}`;
-    const { data } = await axios.get(requestUrl, { timeout: 70000 });
-    return data;
+    const base = `${this.endpoint}?url=${encodeURIComponent(url)}&strategy=${strategy}&${cats}`;
+    // Try each PageSpeed key in turn; roll to the next only on a quota/auth
+    // error (429/403). A different error (bad URL) fails fast — no point
+    // burning the other keys on it.
+    const keys = pageSpeedKeys();
+    const urls = keys.length ? keys.map((k) => `${base}&key=${k}`) : [base];
+    let lastErr: any;
+    for (const requestUrl of urls) {
+      try {
+        const { data } = await axios.get(requestUrl, { timeout: 70000 });
+        return data;
+      } catch (e: any) {
+        lastErr = e;
+        const status = e?.response?.status;
+        if (status !== 429 && status !== 403) throw e;
+      }
+    }
+    throw lastErr;
   }
 
   private extractScreenshot(lhr: any): string | undefined {

@@ -7,6 +7,7 @@ import { appUrl } from "../lib/app-url";
 import { AuditProgress } from "../components/AuditProgress";
 import { ScoreReport, type Comparison } from "../components/ScoreReport";
 import { QrImage } from "../components/QrImage";
+import { unlockAudio } from "../lib/audio";
 
 interface BniMatch {
   id: string;
@@ -174,7 +175,10 @@ export function ScoreGamePage() {
               <Field icon={<Swords size={16} />} value={competitorUrl2} onChange={setCompetitorUrl2} placeholder="2nd competitor website (optional)" tone="rose" />
             </div>
             <button
-              onClick={() => scoreMutation.mutate()}
+              onClick={() => {
+                unlockAudio();
+                scoreMutation.mutate();
+              }}
               disabled={!canStart}
               className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 py-3 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
             >

@@ -85,6 +85,7 @@ export const publicApi = {
   cardScan: (image: string) => publicClient.post("/public/card-scan", { image }),
   // Public AI Score game (queue a comparison; poll via getAnalysis)
   submitScore: (data: unknown) => publicClient.post("/public/score", data),
+  tts: (text: string) => publicClient.post("/public/tts", { text }),
   // Public Profitability Calculator (compute + email results)
   submitCalculator: (data: unknown) => publicClient.post("/public/calculator", data),
   // Booth TV / stall display feed

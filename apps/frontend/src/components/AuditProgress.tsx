@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Volume2, VolumeX, Check } from "lucide-react";
+import { publicApi } from "../lib/api-client";
+import { playUrl, stopAudio } from "../lib/audio";
 
 function host(u?: string) {
   if (!u) return "the site";
@@ -46,8 +48,6 @@ export function AuditProgress({
 }) {
   const [tick, setTick] = useState(0);
   const [muted, setMuted] = useState(false);
-  const spokeRef = useRef(false);
-  const keepAliveRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const messages = [
     `Capturing ${host(yourUrl)}…`,
@@ -74,68 +74,90 @@ export function AuditProgress({
   const step = Math.min(tick, messages.length - 1); // timeline position (holds at last)
   const currentMessage = tick < messages.length ? messages[tick] : tail[(tick - messages.length) % tail.length];
 
-  // Narrate the audit out loud, line by line, using the best available voice.
+  // Narrate the audit. The voice returns a few times (spread across ~50s) so it
+  // stays lively for the whole audit. It tries the AI voice (Gemini TTS, if the
+  // owner enabled it) and falls back to the free browser voice per line.
   useEffect(() => {
-    if (muted || spokeRef.current || !("speechSynthesis" in window)) return;
+    if (muted) return;
     const name = company?.trim() ? company.trim() : "there";
     const comp = competitorUrl ? host(competitorUrl) : "your competitor";
-    const script = [
-      `Hey ${name}! Starting your website audit now.`,
-      `Capturing your site and comparing it with ${comp}.`,
-      "Measuring your domain authority and backlinks.",
-      "Analyzing the keywords you rank for.",
-      "Checking your page speed and core web vitals.",
-      "Scoring your design, user experience and conversion.",
-      "Checking how visible you are to AI assistants.",
-      "Almost there — putting your report together.",
+    const segments = [
+      { at: 0, text: `Hey ${name}! Let's see how you stack up against ${comp}. Starting your audit now.` },
+      { at: 17000, text: "Still analyzing — measuring your S E O, page speed and design." },
+      { at: 34000, text: "The audit is still running. Comparing both sites head to head." },
+      { at: 50000, text: "Almost done — putting your report together." },
     ];
 
-    const speakAll = () => {
-      if (spokeRef.current) return;
-      spokeRef.current = true;
-      const voice = pickVoice();
-      try {
-        window.speechSynthesis.cancel();
-        for (const line of script) {
-          const u = new SpeechSynthesisUtterance(line);
-          if (voice) u.voice = voice;
-          u.rate = 0.97;
-          u.pitch = 1.03;
-          window.speechSynthesis.speak(u); // queued — plays in sequence
-        }
-        // Some browsers stop speech after ~15s; pause/resume keeps it alive.
-        keepAliveRef.current = setInterval(() => {
-          if (window.speechSynthesis.speaking) {
+    let cancelled = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    let keepAlive: ReturnType<typeof setInterval> | undefined;
+
+    const speakBrowser = (text: string) => {
+      if (!("speechSynthesis" in window)) return;
+      const u = new SpeechSynthesisUtterance(text);
+      const v = pickVoice();
+      if (v) u.voice = v;
+      u.rate = 0.97;
+      u.pitch = 1.03;
+      window.speechSynthesis.speak(u);
+      if (!keepAlive) {
+        keepAlive = setInterval(() => {
+          if (window.speechSynthesis?.speaking) {
             window.speechSynthesis.pause();
             window.speechSynthesis.resume();
           }
         }, 9000);
-      } catch {
-        /* ignore */
       }
     };
 
-    // Voices can load asynchronously — wait for them, with a timed fallback.
-    let handler: (() => void) | undefined;
-    if (window.speechSynthesis.getVoices().length) {
-      speakAll();
-    } else {
-      handler = () => speakAll();
-      window.speechSynthesis.addEventListener("voiceschanged", handler);
-      setTimeout(() => speakAll(), 700);
-    }
+    // Ask the server for AI audio; returns true only if it actually played.
+    const sayAi = async (text: string): Promise<boolean> => {
+      try {
+        const { data } = await publicApi.tts(text);
+        if (cancelled || !data?.audio) return false;
+        return await playUrl(data.audio);
+      } catch {
+        return false;
+      }
+    };
+
+    const run = async () => {
+      const aiOk = await sayAi(segments[0]!.text);
+      if (cancelled) return;
+      if (!aiOk) speakBrowser(segments[0]!.text);
+      for (let i = 1; i < segments.length; i++) {
+        const seg = segments[i]!;
+        timers.push(
+          setTimeout(async () => {
+            if (cancelled) return;
+            if (aiOk) {
+              const ok = await sayAi(seg.text);
+              if (!ok && !cancelled) speakBrowser(seg.text);
+            } else {
+              speakBrowser(seg.text);
+            }
+          }, seg.at),
+        );
+      }
+    };
+    void run();
 
     return () => {
-      if (handler) window.speechSynthesis.removeEventListener("voiceschanged", handler);
-      if (keepAliveRef.current) clearInterval(keepAliveRef.current);
+      cancelled = true;
+      timers.forEach(clearTimeout);
+      if (keepAlive) clearInterval(keepAlive);
       window.speechSynthesis?.cancel();
+      stopAudio();
     };
   }, [company, competitorUrl, muted]);
 
   const toggleMute = () => {
     setMuted((m) => {
       const next = !m;
-      if (next) window.speechSynthesis?.cancel();
+      if (next) {
+        window.speechSynthesis?.cancel();
+        stopAudio();
+      }
       return next;
     });
   };

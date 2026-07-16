@@ -14,11 +14,15 @@ const envSchema = z.object({
   ENCRYPTION_KEY: z.string().optional(),
   // AI Experience Hub (all optional — feature is disabled until keys are set)
   GEMINI_API_KEY: z.string().optional(),
-  GEMINI_API_KEY_2: z.string().optional(), // backup — used if the primary errors
+  GEMINI_API_KEY_2: z.string().optional(), // backup 1 — used if the primary errors
   GEMINI_API_KEY_3: z.string().optional(), // backup 2
+  GEMINI_API_KEY_4: z.string().optional(), // backup 3
+  GEMINI_API_KEY_5: z.string().optional(), // backup 4
   GEMINI_MODEL: z.string().default("gemini-3.1-flash-lite"),
   AI_CONCURRENCY: z.coerce.number().int().min(1).max(10).default(3), // roasts running at once; rest queue
   PAGESPEED_API_KEY: z.string().optional(), // optional; PSI works without one at lower rate limits
+  PAGESPEED_API_KEY_2: z.string().optional(), // backup 1
+  PAGESPEED_API_KEY_3: z.string().optional(), // backup 2
   DATAFORSEO_LOGIN: z.string().optional(),
   DATAFORSEO_PASSWORD: z.string().optional(),
   // Which analyzer to use for the AI Score game:

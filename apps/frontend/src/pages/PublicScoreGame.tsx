@@ -6,6 +6,7 @@ import { publicApi } from "../lib/api-client";
 import { AuditProgress } from "../components/AuditProgress";
 import { ScoreReport, type Comparison } from "../components/ScoreReport";
 import { FindEntry } from "../components/FindEntry";
+import { unlockAudio } from "../lib/audio";
 
 interface PlaySession {
   visitor: { name: string; company: string; email?: string; phone?: string };
@@ -187,7 +188,10 @@ export function PublicScoreGame() {
             <input value={competitorUrl2} onChange={(e) => setCompetitorUrl2(e.target.value)} placeholder="another-competitor.com" className={input} />
           </div>
           <button
-            onClick={() => start.mutate()}
+            onClick={() => {
+              unlockAudio();
+              start.mutate();
+            }}
             disabled={!canStart || start.isPending}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-500 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-50"
           >

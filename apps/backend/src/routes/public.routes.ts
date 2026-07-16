@@ -14,6 +14,7 @@ import { enqueueAnalysis, queueInfo } from "../services/analysis-queue.service";
 import { computeProfit, inr } from "../services/profit-calc.service";
 import { emailService } from "../services/email.service";
 import { buildCalcEmail } from "../services/email-templates.service";
+import { synthesizeSpeech } from "../services/tts.service";
 
 const router = Router();
 
@@ -729,6 +730,20 @@ router.get(
       calcItems,
       leaderboard: { scores: scoreBoard, margins: marginBoard },
     });
+  }),
+);
+
+// ── POST /api/public/tts (narration voice for the audit screen) ──
+// Returns a WAV data URL from Gemini TTS, or { audio: null } when the AI voice
+// is disabled or unavailable (the client then uses the free browser voice).
+const ttsLimiter = rateLimit({ windowMs: 60_000, max: 40, standardHeaders: true, legacyHeaders: false });
+router.post(
+  "/tts",
+  ttsLimiter,
+  asyncHandler(async (req: Request, res: Response) => {
+    const text = String(req.body?.text ?? "").slice(0, 400);
+    const audio = await synthesizeSpeech(text).catch(() => null);
+    res.json({ audio });
   }),
 );
 
