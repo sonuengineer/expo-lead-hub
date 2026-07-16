@@ -1,0 +1,12 @@
+# SPA routing for cPanel/Apache when hosted at rathinfotech.com/mmd2026/
+# Any request that isn't a real file/folder is served index.html so React Router
+# can handle deep links (/play/:token, /booth, /v/:code, etc.) on refresh/scan.
+# If you deploy under a different sub-path, change RewriteBase accordingly.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /mmd2026/
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . index.html [L]
+</IfModule>

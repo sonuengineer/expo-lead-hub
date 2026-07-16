@@ -54,7 +54,6 @@ function initialValues(fields: FormFieldDef[]): Values {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const URL_RE = /^https?:\/\/.+/i;
 
 export function DynamicForm({
   fields,
@@ -108,9 +107,7 @@ export function DynamicForm({
       if (f.fieldType === "EMAIL" && !EMAIL_RE.test(String(val))) {
         next[f.fieldKey] = "Enter a valid email address";
       }
-      if (f.fieldType === "URL" && !URL_RE.test(String(val))) {
-        next[f.fieldKey] = "Enter a valid URL (https://…)";
-      }
+      // URL fields accept a bare domain (e.g. "example.com") — no scheme required.
     }
     setErrors(next);
     return Object.keys(next).length === 0;

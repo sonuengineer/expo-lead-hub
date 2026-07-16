@@ -8,9 +8,9 @@ interface BoothContext {
   booth: { id: string; name: string } | null;
 }
 
-// Where "Back to home" goes — your website's home. Defaults to the site root;
-// override with VITE_MAIN_SITE_URL to point at a specific URL.
-const MAIN_SITE_URL = import.meta.env.VITE_MAIN_SITE_URL || "/";
+// Where "Back to home" goes. Defaults to the app's own base path (e.g. /mmd2026/)
+// so it stays inside the hosted sub-path; override with VITE_MAIN_SITE_URL.
+const MAIN_SITE_URL = import.meta.env.VITE_MAIN_SITE_URL || import.meta.env.BASE_URL;
 
 export function BoothLanding() {
   const { data } = useQuery({

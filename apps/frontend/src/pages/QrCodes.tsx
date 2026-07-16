@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { QrCode as QrIcon, Download, Printer, Trash2, Loader2, Plus } from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "../lib/api-client";
+import { appUrl } from "../lib/app-url";
 import { QrImage, downloadQrPng, downloadQrSvg, printQr } from "../components/QrImage";
 import { formatDate } from "../components/badges";
 
@@ -26,7 +27,7 @@ interface QrRow {
 }
 
 // The public visitor URL encoded into each QR code.
-const publicUrl = (shortCode: string) => `${window.location.origin}/v/${shortCode}`;
+const publicUrl = (shortCode: string) => appUrl(`/v/${shortCode}`);
 
 export function QrCodesPage() {
   const qc = useQueryClient();

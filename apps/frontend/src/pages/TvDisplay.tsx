@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Sparkles, Calculator, Trophy, Users, Loader2 } from "lucide-react";
 import { publicApi } from "../lib/api-client";
 import { QrImage } from "../components/QrImage";
+import { appUrl } from "../lib/app-url";
 
 interface ScoreItem {
   type: "AI_SCORE";
@@ -47,7 +48,7 @@ export function TvDisplay() {
   }, [cards.length]);
   const card = cards[idx % Math.max(1, cards.length)];
 
-  const boothUrl = `${window.location.origin}/booth`;
+  const boothUrl = appUrl("/booth");
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 p-8 text-white">

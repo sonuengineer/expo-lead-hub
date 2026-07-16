@@ -6,6 +6,8 @@ import { api } from "../lib/api-client";
 import { downscale } from "../lib/ocr";
 import { useAuthStore } from "../stores/auth.store";
 import { DynamicForm, type FormFieldDef } from "../components/DynamicForm";
+import { QrImage } from "../components/QrImage";
+import { appUrl } from "../lib/app-url";
 
 interface ParsedData {
   companyName?: string;
@@ -47,6 +49,7 @@ export function OcrScanPage() {
   const [showRaw, setShowRaw] = useState(false);
   const [done, setDone] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [playLink, setPlayLink] = useState<string | null>(null);
 
   const { data: eventsData } = useQuery({
     queryKey: ["events-filter"],
@@ -137,7 +140,11 @@ export function OcrScanPage() {
         formData,
         submittedBy: user!.id,
       }),
-    onSuccess: () => setDone(true),
+    onSuccess: (res: any) => {
+      const token: string | undefined = res?.data?.playToken;
+      setPlayLink(res?.data?.playLink ?? (token ? appUrl(`/play/${token}`) : null));
+      setDone(true);
+    },
     onError: (err: any) => toast.error(err?.response?.data?.message ?? "Submit failed"),
   });
 
@@ -145,6 +152,7 @@ export function OcrScanPage() {
     onFileChange(null);
     setScan(null);
     setDone(false);
+    setPlayLink(null);
   };
 
   if (done) {
@@ -152,7 +160,18 @@ export function OcrScanPage() {
       <div className="mx-auto max-w-md rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
         <CheckCircle2 className="mx-auto mb-3 text-green-500" size={48} />
         <h2 className="text-xl font-bold text-gray-900">Lead captured</h2>
-        <p className="mt-2 text-sm text-gray-600">The scanned card was saved and queued for sync.</p>
+        <p className="mt-2 text-sm text-gray-600">The card was saved, and a WhatsApp/email with their game link is on the way.</p>
+
+        {playLink && (
+          <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50 p-4">
+            <p className="text-sm font-semibold text-indigo-900">Let them play now</p>
+            <p className="mt-0.5 text-xs text-indigo-700">Ask the visitor to scan this on their phone.</p>
+            <div className="mt-3 flex justify-center">
+              <QrImage value={playLink} size={150} />
+            </div>
+          </div>
+        )}
+
         <button
           onClick={reset}
           className="mt-6 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"

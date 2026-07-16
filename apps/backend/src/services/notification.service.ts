@@ -86,10 +86,17 @@ export async function notifyLeadReceived(leadId: string): Promise<void> {
   const visitorEmail = pick(data, EMAIL_KEYS);
   if (!visitorPhone && !visitorEmail) return; // nowhere to send
 
+  // Track whether an explicit config handled each channel; if not, we fall back
+  // to a sensible default below (so email/WhatsApp still go out with zero setup).
+  let emailHandled = false;
+  let waHandled = false;
+
   for (const cfg of configs) {
     const triggers = (cfg.events as string[] | null) ?? [];
     if (!triggers.includes("LEAD_RECEIVED")) continue;
     const c = (cfg.config ?? {}) as ChannelConfig;
+    if (cfg.channel === "EMAIL") emailHandled = true;
+    if (cfg.channel === "WHATSAPP") waHandled = true;
 
     if (cfg.channel === "WHATSAPP" && visitorPhone) {
       const chatId = whatsAppService.toChatId(visitorPhone);
@@ -123,5 +130,21 @@ export async function notifyLeadReceived(leadId: string): Promise<void> {
           .catch((e) => console.error("[email] notification failed:", (e as Error)?.message));
       }
     }
+  }
+
+  // ── Defaults when no config exists for a channel ──
+  // Booth "just works": a visitor with an email always gets the welcome (with
+  // their game link), even if no Email automation was configured for the event.
+  if (!emailHandled && visitorEmail && emailService.isEmailConfigured()) {
+    await emailService
+      .sendEmail(visitorEmail, render(DEFAULT_EMAIL_SUBJECT, vars), render(DEFAULT_EMAIL_WELCOME, vars))
+      .catch((e) => console.error("[email] default notification failed:", (e as Error)?.message));
+  }
+  if (!waHandled && visitorPhone && env.OPENWA_BASE_URL && env.OPENWA_API_KEY) {
+    const chatId = whatsAppService.toChatId(visitorPhone);
+    const sid = await whatsAppService.resolveSessionId(sessionId).catch(() => sessionId);
+    await whatsAppService
+      .sendText(sid, chatId, render(DEFAULT_WELCOME, vars))
+      .catch((e) => console.error("[whatsapp] default notification failed:", (e as Error)?.message));
   }
 }

@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Flame, Loader2, Globe, QrCode as QrIcon, UserPlus, CheckCircle2, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "../lib/api-client";
+import { appUrl } from "../lib/app-url";
 import { RoastReport, type Analysis } from "../components/RoastReport";
 import { QrImage } from "../components/QrImage";
 
@@ -86,7 +87,7 @@ export function WebsiteRoastPage() {
     onError: (err: any) => toast.error(err?.response?.data?.message ?? "Could not save lead"),
   });
 
-  const reportUrl = analysis ? `${window.location.origin}/ai/report/${analysis.id}` : "";
+  const reportUrl = analysis ? appUrl(`/ai/report/${analysis.id}`) : "";
 
   return (
     <div className="space-y-6">

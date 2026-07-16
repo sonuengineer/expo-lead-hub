@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Gamepad2, Search, Globe, Swords, Loader2, UserPlus, CheckCircle2, X, QrCode as QrIcon } from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "../lib/api-client";
+import { appUrl } from "../lib/app-url";
 import { AuditProgress } from "../components/AuditProgress";
 import { ScoreReport, type Comparison } from "../components/ScoreReport";
 import { QrImage } from "../components/QrImage";
@@ -99,7 +100,7 @@ export function ScoreGamePage() {
 
   const busy = scoreMutation.isPending || !!pendingId;
   const canStart = url.trim().length > 3 && competitorUrl.trim().length > 3;
-  const reportUrl = analysis ? `${window.location.origin}/ai/report/${analysis.id}` : "";
+  const reportUrl = analysis ? appUrl(`/ai/report/${analysis.id}`) : "";
 
   // While running → full audit-in-progress animation.
   if (busy) {
