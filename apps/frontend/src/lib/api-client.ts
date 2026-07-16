@@ -89,6 +89,8 @@ export const publicApi = {
   submitCalculator: (data: unknown) => publicClient.post("/public/calculator", data),
   // Booth TV / stall display feed
   tvFeed: () => publicClient.get("/public/tv-feed"),
+  // Match a walk-up to their lead by name/email/mobile → play token
+  findSession: (q: string) => publicClient.get("/public/find-session", { params: { q } }),
 };
 
 // API Methods

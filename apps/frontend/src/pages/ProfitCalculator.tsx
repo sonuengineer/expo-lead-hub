@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Calculator, Loader2, CheckCircle2, TrendingUp, TrendingDown } from "lucide-react";
 import { publicApi } from "../lib/api-client";
 import { computeProfit, inr } from "../lib/profit-calc";
+import { FindEntry } from "../components/FindEntry";
 
 interface PlaySession {
   visitor: { name: string; company: string };
@@ -35,6 +36,12 @@ export function ProfitCalculator() {
   });
   const [done, setDone] = useState(false);
   const [emailed, setEmailed] = useState(false);
+  // Collected only when there's no play session (walk-up at /booth/calculator).
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [linkedToken, setLinkedToken] = useState<string | null>(null);
+  const [linkedName, setLinkedName] = useState("");
+  const effToken = token || linkedToken; // URL play token, or one matched via FindEntry
 
   const session = useQuery({
     queryKey: ["play-session", token],
@@ -66,7 +73,9 @@ export function ProfitCalculator() {
         marketingBdCost: num("marketingBdCost"),
         taxRatePct: parseFloat(taxRatePct || "0") || 0,
         period,
-        playToken: token,
+        playToken: effToken ?? undefined,
+        name: name.trim() || undefined,
+        email: email.trim() || undefined,
       }),
     onSuccess: (res: any) => {
       setEmailed(Boolean(res?.data?.emailed));
@@ -74,7 +83,10 @@ export function ProfitCalculator() {
     },
   });
 
-  const canSubmit = num("revenue") > 0;
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  // With a session (URL token or a matched entry) the email is known; otherwise
+  // the walk-up must type one.
+  const canSubmit = num("revenue") > 0 && (Boolean(effToken) || emailValid);
   const loss = results.isLoss;
 
   const Row = ({ label, value, strong, tone }: { label: string; value: number; strong?: boolean; tone?: "good" | "bad" }) => (
@@ -164,6 +176,42 @@ export function ProfitCalculator() {
                   className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:border-emerald-500/70 focus:outline-none"
                 />
               </div>
+
+              {/* Walk-up (no play session) — link to their form entry, or capture. */}
+              {!token && (
+                <div className="mt-2 rounded-lg border border-white/10 bg-white/[0.02] p-3">
+                  {linkedToken ? (
+                    <p className="text-sm text-emerald-300">
+                      ✓ Linked to {linkedName || "your entry"} — results go to the email you gave.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      <FindEntry
+                        onFound={(t, n) => {
+                          setLinkedToken(t);
+                          setLinkedName(n);
+                        }}
+                      />
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                        <span className="h-px flex-1 bg-white/10" /> or enter new <span className="h-px flex-1 bg-white/10" />
+                      </div>
+                      <input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Your name (optional)"
+                        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:border-emerald-500/70 focus:outline-none"
+                      />
+                      <input
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        type="email"
+                        placeholder="you@company.com"
+                        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:border-emerald-500/70 focus:outline-none"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </section>
 

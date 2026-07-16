@@ -367,6 +367,64 @@ router.get(
   }),
 );
 
+// ── GET /api/public/find-session?q= (Match a walk-up to their lead) ──
+// A visitor who filled the form but opens a game directly can be linked to
+// their lead by name, email, or mobile. Returns the play token (email stays
+// server-side) so results still reach them.
+const FS_NAME = ["contact_person", "contactPerson", "name", "full_name", "fullName"];
+const FS_EMAIL = ["email", "emailAddress", "email_address"];
+const FS_PHONE = ["mobile_number", "mobileNumber", "phone", "phone_number", "phoneNumber", "mobile"];
+const COMPANY_KEYS_FS = ["company_name", "companyName", "company", "organization"];
+const fsPick = (d: Record<string, any>, keys: string[]) => {
+  for (const k of keys) {
+    const v = d[k];
+    if (v != null && String(v).trim()) return String(v);
+  }
+  return "";
+};
+
+router.get(
+  "/find-session",
+  publicLookupLimiter,
+  asyncHandler(async (req: Request, res: Response) => {
+    const q = String(req.query.q ?? "").trim();
+    if (q.length < 2) return res.json({ match: null });
+
+    const active = await prisma.event.findFirst({
+      where: { status: "ACTIVE" },
+      orderBy: { startDate: "desc" },
+      select: { id: true },
+    });
+    if (!active) return res.json({ match: null });
+
+    const leads = await prisma.lead.findMany({
+      where: { eventId: active.id, playToken: { not: null } },
+      select: { playToken: true, rawFormData: true },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    });
+
+    const lower = q.toLowerCase();
+    const digits = q.replace(/\D/g, "");
+    const byDigits = digits.length >= 5 ? digits.slice(-8) : "";
+
+    for (const l of leads) {
+      const d = (l.rawFormData ?? {}) as Record<string, any>;
+      const name = fsPick(d, FS_NAME);
+      const email = fsPick(d, FS_EMAIL);
+      const phone = fsPick(d, FS_PHONE).replace(/\D/g, "");
+      const hit =
+        (name && name.toLowerCase().includes(lower)) ||
+        (email && email.toLowerCase().includes(lower)) ||
+        (byDigits && phone.includes(byDigits));
+      if (hit) {
+        return res.json({ match: { token: l.playToken, name, company: fsPick(d, COMPANY_KEYS_FS) } });
+      }
+    }
+    res.json({ match: null });
+  }),
+);
+
 // ── GET /api/public/bni?q= (Public BNI directory lookup) ──
 // Name or phone typeahead used by the phone-first entry + card-scan flows.
 router.get(
@@ -482,6 +540,9 @@ const calculatorSchema = z.object({
   period: z.string().optional(), // "month" | "year" — display label only
   playToken: z.string().optional(),
   email: z.string().email().optional(),
+  // Walk-up entry (no play session) can pass a name/company to capture as a lead.
+  name: z.string().optional(),
+  company: z.string().optional(),
 });
 
 router.post(
@@ -491,23 +552,68 @@ router.post(
     const p = calculatorSchema.parse(req.body);
     const results = computeProfit(p);
 
-    // Recover the visitor's email from their play session if not supplied.
     let email: string | null = p.email ?? null;
-    if (p.playToken && !email) {
-      const lead = await prisma.lead.findUnique({
-        where: { playToken: p.playToken },
-        select: { rawFormData: true },
+    let playToken: string | null = p.playToken ?? null;
+
+    if (p.playToken) {
+      // Came from a play session — recover the email from the lead if needed.
+      if (!email) {
+        const lead = await prisma.lead.findUnique({
+          where: { playToken: p.playToken },
+          select: { rawFormData: true },
+        });
+        const d = (lead?.rawFormData ?? {}) as Record<string, any>;
+        email = d.email ?? d.emailAddress ?? d.email_address ?? null;
+      }
+    } else if (email) {
+      // Walk-up (Booth Mode → Calculator): capture as a lead so it's saved +
+      // appears on the TV, using the active event/booth.
+      const active = await prisma.event.findFirst({
+        where: { status: "ACTIVE" },
+        orderBy: { startDate: "desc" },
+        select: { id: true, booths: { where: { isActive: true }, take: 1, select: { id: true } } },
       });
-      const d = (lead?.rawFormData ?? {}) as Record<string, any>;
-      email = d.email ?? d.emailAddress ?? d.email_address ?? null;
+      const evId = active?.id;
+      const bId = active?.booths[0]?.id;
+      if (evId && bId) {
+        const [visitorType, form] = await Promise.all([
+          prisma.visitorType.findFirst({ where: { eventId: evId, isActive: true }, orderBy: { displayOrder: "asc" } }),
+          getActiveForm(evId),
+        ]);
+        if (visitorType && form) {
+          playToken = newPlayToken();
+          const lead = await prisma.lead.create({
+            data: {
+              eventId: evId,
+              boothId: bId,
+              visitorTypeId: visitorType.id,
+              formDefinitionId: form.id,
+              source: "MANUAL",
+              playToken,
+              rawFormData: {
+                contact_person: p.name ?? "",
+                company_name: p.company ?? "",
+                email,
+                _source: "CALCULATOR",
+                _calculator: { inputs: p, results },
+              } as any,
+              status: "NEW",
+            },
+          });
+          await Promise.all([
+            prisma.syncQueue.create({ data: { leadId: lead.id, target: "CRM", status: "PENDING" } }),
+            prisma.syncQueue.create({ data: { leadId: lead.id, target: "GOOGLE_SHEETS", status: "PENDING" } }),
+          ]);
+        }
+      }
     }
 
     // Record against the play session so the TV display can pick it up.
-    if (p.playToken) {
+    if (playToken) {
       await prisma.gameResult
         .create({
           data: {
-            playToken: p.playToken,
+            playToken,
             gameType: "PROFIT_CALC",
             status: "COMPLETED",
             payload: { inputs: p, results } as any,

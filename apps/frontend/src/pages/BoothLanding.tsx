@@ -59,7 +59,7 @@ export function BoothLanding() {
         </Link>
 
         <Link
-          to="/ai/score"
+          to="/booth/score"
           className="glass-card group flex flex-col items-start gap-4 p-8 transition-transform duration-200 hover:-translate-y-1 hover:bg-white/15"
         >
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-400 to-purple-500 text-white shadow-lg">

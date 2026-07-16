@@ -5,6 +5,7 @@ import { Sparkles, Loader2 } from "lucide-react";
 import { publicApi } from "../lib/api-client";
 import { AuditProgress } from "../components/AuditProgress";
 import { ScoreReport, type Comparison } from "../components/ScoreReport";
+import { FindEntry } from "../components/FindEntry";
 
 interface PlaySession {
   visitor: { name: string; company: string };
@@ -21,6 +22,11 @@ export function PublicScoreGame() {
   const [queuePos, setQueuePos] = useState(0);
   const [analysis, setAnalysis] = useState<Comparison | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Walk-up (no URL token): link to their form entry, or capture an email.
+  const [email, setEmail] = useState("");
+  const [linkedToken, setLinkedToken] = useState<string | null>(null);
+  const [linkedName, setLinkedName] = useState("");
+  const effToken = token || linkedToken;
 
   const session = useQuery({
     queryKey: ["play-session", token],
@@ -31,7 +37,13 @@ export function PublicScoreGame() {
 
   const start = useMutation({
     mutationFn: () =>
-      publicApi.submitScore({ url, competitorUrl, competitorUrl2: competitorUrl2.trim() || undefined, playToken: token }),
+      publicApi.submitScore({
+        url,
+        competitorUrl,
+        competitorUrl2: competitorUrl2.trim() || undefined,
+        playToken: effToken ?? undefined,
+        email: email.trim() || undefined,
+      }),
     onSuccess: (res: any) => {
       setAnalysis(null);
       setError(null);
@@ -62,8 +74,10 @@ export function PublicScoreGame() {
     }
   }, [polled]);
 
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const busy = start.isPending || !!pendingId;
-  const canStart = url.trim().length > 3 && competitorUrl.trim().length > 3;
+  const canStart =
+    url.trim().length > 3 && competitorUrl.trim().length > 3 && (Boolean(effToken) || emailValid);
   const company = session.data?.visitor.company || session.data?.visitor.name || "";
 
   if (busy) {
@@ -122,6 +136,30 @@ export function PublicScoreGame() {
         )}
 
         <div className="space-y-4">
+          {/* Walk-up (no play session) — link to their form entry, or capture email. */}
+          {!token && (
+            <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
+              {linkedToken ? (
+                <p className="text-sm text-emerald-300">
+                  ✓ Linked to {linkedName || "your entry"} — report goes to the email you gave.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  <FindEntry
+                    onFound={(t, n) => {
+                      setLinkedToken(t);
+                      setLinkedName(n);
+                    }}
+                  />
+                  <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                    <span className="h-px flex-1 bg-white/10" /> or enter email <span className="h-px flex-1 bg-white/10" />
+                  </div>
+                  <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@company.com" className={input} />
+                </div>
+              )}
+            </div>
+          )}
+
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-300">Your website</label>
             <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="yourcompany.com" className={input} />

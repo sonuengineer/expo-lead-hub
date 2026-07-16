@@ -50,6 +50,7 @@ export default function App() {
         <Route path="/v/:shortCode" element={<PublicLeadForm />} />
         <Route path="/play/:token" element={<PlaySelect />} />
         <Route path="/play/:token/score" element={<PublicScoreGame />} />
+        <Route path="/booth/score" element={<PublicScoreGame />} />
         <Route path="/play/:token/calculator" element={<ProfitCalculator />} />
         <Route path="/tv" element={<TvDisplay />} />
         <Route path="/ai/report/:id" element={<AnalysisReportPage />} />
