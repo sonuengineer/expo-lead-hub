@@ -178,6 +178,15 @@ function MetricsCol({ title, m, accent }: { title: string; m: DomainMetrics | nu
   );
 }
 
+// Darker, print-legible shades for the score numbers (the bar keeps the
+// brighter scoreColor). Light amber text was near-invisible on white before.
+function scoreTextColor(v?: number | null) {
+  if (v == null) return "#6b7280";
+  if (v >= 90) return "#15803d"; // green-700
+  if (v >= 50) return "#b45309"; // amber-700
+  return "#b91c1c"; // red-700
+}
+
 function Bar({ label, you, comp }: { label: string; you?: number; comp?: number }) {
   const y = you ?? 0;
   const c = comp ?? 0;
@@ -185,18 +194,18 @@ function Bar({ label, you, comp }: { label: string; you?: number; comp?: number 
   const compWins = c > y;
   return (
     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
-      <div className={`flex items-center justify-end gap-2 transition-opacity ${compWins ? "opacity-40" : ""}`}>
-        <span className="font-semibold tabular-nums" style={{ color: scoreColor(you) }}>{you ?? "–"}</span>
-        <div className="h-2 w-24 overflow-hidden rounded-full bg-gray-100">
+      <div className="flex items-center justify-end gap-2">
+        <span className="font-bold tabular-nums" style={{ color: scoreTextColor(you) }}>{you ?? "–"}</span>
+        <div className={`h-2.5 w-24 overflow-hidden rounded-full bg-gray-100 ${compWins ? "opacity-50" : ""}`}>
           <div className="ml-auto h-full rounded-full" style={{ width: `${y}%`, backgroundColor: scoreColor(you), marginLeft: "auto", float: "right" }} />
         </div>
       </div>
       <span className="w-24 text-center text-xs font-medium uppercase tracking-wide text-gray-500">{label}</span>
-      <div className={`flex items-center gap-2 transition-opacity ${youWins ? "opacity-40" : ""}`}>
-        <div className="h-2 w-24 overflow-hidden rounded-full bg-gray-100">
+      <div className="flex items-center gap-2">
+        <div className={`h-2.5 w-24 overflow-hidden rounded-full bg-gray-100 ${youWins ? "opacity-50" : ""}`}>
           <div className="h-full rounded-full" style={{ width: `${c}%`, backgroundColor: scoreColor(comp) }} />
         </div>
-        <span className="font-semibold tabular-nums" style={{ color: scoreColor(comp) }}>{comp ?? "–"}</span>
+        <span className="font-bold tabular-nums" style={{ color: scoreTextColor(comp) }}>{comp ?? "–"}</span>
       </div>
     </div>
   );
@@ -217,7 +226,25 @@ export function ScoreReport({ data }: { data: Comparison }) {
   const comp2Metrics = data.audit?.metrics?.competitor2 ?? null;
   const competitors = data.audit?.competitors ?? [];
 
-  const radarAxes = ["UI", "UX", "SEO", "Conv", "LLM"];
+  // Who this report is for — drives the header + the saved PDF filename.
+  const who = data.company || hostOf(data.url) || "Website Audit";
+
+  const downloadPdf = () => {
+    const prev = document.title;
+    const date = new Date().toISOString().slice(0, 10);
+    // Browsers use document.title as the default "Save as PDF" filename, so
+    // name it after the client/company instead of the app title.
+    document.title = `Website Audit — ${who} — ${date}`;
+    const restore = () => {
+      document.title = prev;
+      window.removeEventListener("afterprint", restore);
+    };
+    window.addEventListener("afterprint", restore);
+    window.print();
+    setTimeout(restore, 1500); // fallback if afterprint doesn't fire
+  };
+
+  const radarAxes = ["UI", "UX", "SEO", "Conv", "AI"];
   const radarSeries = [
     { label: hostOf(data.url) || "You", color: YOU_COLOR, values: [your.ui ?? 0, your.ux ?? 0, your.seo ?? 0, your.conversion ?? 0, your.llmScore ?? 0] },
     { label: hostOf(data.competitorUrl) || "Competitor", color: COMP_COLOR, values: [comp.ui ?? 0, comp.ux ?? 0, comp.seo ?? 0, comp.conversion ?? 0, comp.llmScore ?? 0] },
@@ -231,18 +258,24 @@ export function ScoreReport({ data }: { data: Comparison }) {
 
   return (
     <div
+      data-report
       className="space-y-6 antialiased [font-variant-numeric:tabular-nums] [-webkit-font-smoothing:antialiased]"
       style={{
         fontFamily:
           '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       }}
     >
-      {/* Toolbar */}
-      <div className="flex items-center justify-between print:hidden">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-gray-400">Website Audit Report</h2>
+      {/* Report header — identifies whose audit this is (on screen + in the PDF).
+          Only the download button is hidden when printing. */}
+      <div className="flex items-start justify-between gap-4 border-b border-gray-200 pb-4">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-wide text-indigo-500">Website Audit Report</p>
+          <h1 className="mt-0.5 truncate text-2xl font-bold tracking-tight text-gray-900" title={who}>{who}</h1>
+          <p className="mt-0.5 truncate text-sm text-gray-500">{hostOf(data.url) || data.url}</p>
+        </div>
         <button
-          onClick={() => window.print()}
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+          onClick={downloadPdf}
+          className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 print:hidden"
         >
           <Download size={16} /> Download PDF
         </button>
@@ -252,8 +285,11 @@ export function ScoreReport({ data }: { data: Comparison }) {
       <div className={`rounded-2xl p-6 text-center text-white shadow-lg ${youWin ? "bg-gradient-to-r from-emerald-500 to-teal-600" : tie ? "bg-gradient-to-r from-slate-500 to-slate-700" : "bg-gradient-to-r from-orange-500 to-rose-600"}`}>
         <Trophy className="mx-auto mb-1.5" size={26} />
         <h2 className="text-2xl font-bold tracking-tight">
-          {youWin ? "You win" : tie ? "It's a tie" : "Here's how to win"}
+          {youWin ? "Your site leads" : tie ? "It's a close call" : "How your site compares"}
         </h2>
+        <p className="mx-auto mt-0.5 text-xs font-medium uppercase tracking-wide text-white/70">
+          {who} vs {hostOf(data.competitorUrl) || "competitor"}
+        </p>
         <p className="mx-auto mt-1.5 max-w-2xl text-sm leading-relaxed text-white/80">{verdict.reasoning}</p>
       </div>
 
@@ -296,12 +332,16 @@ export function ScoreReport({ data }: { data: Comparison }) {
             <Bar label="UX" you={your.ux} comp={comp.ux} />
             <Bar label="SEO" you={your.seo} comp={comp.seo} />
             <Bar label="Conversion" you={your.conversion} comp={comp.conversion} />
-            {(your.llmScore != null || comp.llmScore != null) && <Bar label="LLM" you={your.llmScore} comp={comp.llmScore} />}
+            {(your.llmScore != null || comp.llmScore != null) && <Bar label="AI Search" you={your.llmScore} comp={comp.llmScore} />}
             {(lh.performance != null || clh.performance != null) && <Bar label="Performance" you={lh.performance ?? undefined} comp={clh.performance ?? undefined} />}
             {(lh.accessibility != null || clh.accessibility != null) && <Bar label="Accessibility" you={lh.accessibility ?? undefined} comp={clh.accessibility ?? undefined} />}
             {(lh.bestPractices != null || clh.bestPractices != null) && <Bar label="Best Practices" you={lh.bestPractices ?? undefined} comp={clh.bestPractices ?? undefined} />}
           </div>
-          <p className="mt-3 text-center text-xs text-gray-400">The stronger side shows in full colour. UI / UX / Conversion / LLM are AI scores; Performance / Accessibility are Lighthouse.</p>
+          <p className="mt-3 text-center text-xs text-gray-400">
+            The stronger side shows in full colour. UI / UX / Conversion are AI scores;
+            <span className="font-medium"> AI Search</span> = how likely AI assistants (ChatGPT, Gemini) are to recommend the site;
+            Performance / Accessibility are Lighthouse.
+          </p>
         </div>
       </div>
 

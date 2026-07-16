@@ -39,18 +39,26 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+
 // Turn the plain-text template into a clean, email-client-safe HTML message.
 // Spacing is preserved (blank lines become paragraph gaps, single newlines
 // become <br>), and the final block is treated as the signature: the first
 // line bold, the rest muted. Emails/URLs in the signature are auto-linked.
 export function textToHtml(text: string): string {
   const blocks = text.trim().split(/\n{2,}/);
-  const linkify = (line: string) =>
-    line
-      .replace(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g, '<a href="mailto:$1" style="color:#4f46e5;text-decoration:none">$1</a>')
-      .replace(/\b((?:https?:\/\/)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s]*)?)\b/gi, (m) =>
-        /@/.test(m) ? m : `<a href="${m.startsWith("http") ? m : "https://" + m}" style="color:#4f46e5;text-decoration:none">${m}</a>`,
-      );
+  // Linkify a single line. If it contains an email, only the email is linked —
+  // we must NOT then run the URL regex, or it would match the domain *inside*
+  // the freshly-built mailto anchor and shatter the HTML.
+  const linkify = (line: string): string => {
+    const withEmail = line.replace(
+      /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g,
+      '<a href="mailto:$1" style="color:#4f46e5;text-decoration:none">$1</a>',
+    );
+    if (withEmail !== line) return withEmail; // had an email — done
+    return withEmail.replace(/\b((?:https?:\/\/)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s]*)?)\b/gi, (m) =>
+      `<a href="${m.startsWith("http") ? m : "https://" + m}" style="color:#4f46e5;text-decoration:none">${m}</a>`,
+    );
+  };
 
   const parts = blocks.map((block, i) => {
     const lines = escapeHtml(block).split("\n");

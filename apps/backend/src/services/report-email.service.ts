@@ -2,12 +2,13 @@ import { prisma } from "@elc/db";
 import { emailService } from "./email.service";
 import { reportLink } from "../utils/play-link";
 import { inr } from "./profit-calc.service";
+import { buildCalcEmail, buildReportEmail } from "./email-templates.service";
 
 // Manually (re)send the game result report(s) for a lead — used when the
 // automatic result email didn't go out. Sends to the email on the lead's form.
 export async function sendReportsForLead(
   leadId: string,
-): Promise<{ sent: number; email: string | null; reason?: string }> {
+): Promise<{ sent: number; email: string | null; sentCount?: number; reason?: string }> {
   const lead = await prisma.lead.findUnique({
     where: { id: leadId },
     select: { playToken: true, rawFormData: true },
@@ -45,52 +46,47 @@ export async function sendReportsForLead(
     }
   }
 
-  return { sent, email, reason: sent === 0 ? "No completed game result to send" : undefined };
+  // Count one send per action (a click that emailed ≥1 report bumps the counter).
+  let sentCount: number | undefined;
+  if (sent > 0) {
+    const updated = await prisma.lead.update({
+      where: { id: leadId },
+      data: { reportsSentCount: { increment: 1 } },
+      select: { reportsSentCount: true },
+    });
+    sentCount = updated.reportsSentCount;
+  }
+
+  return { sent, email, sentCount, reason: sent === 0 ? "No completed game result to send" : undefined };
 }
 
 function scoreEmailText(a: any): string {
   const au = a.audit ?? {};
-  const y = au.your?.overallScore ?? "—";
-  const c = au.competitor?.overallScore ?? "—";
   const m = au.metrics?.your ?? {};
   const num = (v: any) => (v == null ? "—" : Number(v).toLocaleString());
-  const lines = [
-    "Hi,",
-    "",
-    "Your AI website audit is ready:",
-    "",
-    `Overall score — Your site: ${y}/100  |  Competitor: ${c}/100`,
-    au.verdict?.reasoning ? `\n${au.verdict.reasoning}` : "",
-  ];
-  if (m.da != null || m.referringDomains != null || m.keywordCount != null) {
-    lines.push(
-      "",
-      "── Your site's SEO snapshot ──",
-      `Domain Authority: ${num(m.da)}   Page Authority: ${num(m.pa)}`,
-      `Referring domains: ${num(m.referringDomains)}   Backlinks: ${num(m.backlinks)}`,
-      `Ranking keywords: ${num(m.keywordCount)}   Est. organic traffic: ${num(m.organicTraffic)}`,
-    );
-  }
-  lines.push("", `See the full report: ${reportLink(a.id)}`, "", "Rath Infotech and Web Solutions");
-  return lines.join("\n");
+  return buildReportEmail({
+    yourScore: au.your?.overallScore ?? "—",
+    competitorScore: au.competitor?.overallScore ?? "—",
+    reasoning: au.verdict?.reasoning ?? "",
+    da: num(m.da),
+    pa: num(m.pa),
+    referringDomains: num(m.referringDomains),
+    backlinks: num(m.backlinks),
+    keywords: num(m.keywordCount),
+    traffic: num(m.organicTraffic),
+    reportLink: reportLink(a.id),
+  });
 }
 
 function calcEmailText(p: any): string {
   const r = p.results ?? {};
   const per = p.inputs?.period === "year" ? "yearly" : "monthly";
-  return [
-    "Hi,",
-    "",
-    `Here's your Rath Infotech partnership profitability snapshot (${per}):`,
-    "",
-    `Clients: ${r.clients}`,
-    `Total ${per} revenue: ${inr(r.revenue)}`,
-    `Rath Infotech charges: ${inr(r.rathCharges)}`,
-    `Your internal expenses: ${inr(r.internalExpenses)}`,
-    `Total ${per} profit: ${inr(r.profit)}`,
-    "",
-    `By partnering with Rath Infotech, you can manage ${r.clients} client${r.clients === 1 ? "" : "s"} and earn an estimated ${per} profit of ${inr(r.profit)} without hiring and managing an in-house development team.`,
-    "",
-    "Rath Infotech and Web Solutions",
-  ].join("\n");
+  return buildCalcEmail({
+    period: per,
+    clients: r.clients,
+    revenue: inr(r.revenue),
+    rathCharges: inr(r.rathCharges),
+    internalExpenses: inr(r.internalExpenses),
+    profit: inr(r.profit),
+  });
 }

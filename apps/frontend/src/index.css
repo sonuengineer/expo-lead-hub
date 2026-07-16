@@ -20,6 +20,10 @@
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
+  /* Keep each report card whole — don't split a card across two pages. */
+  [data-report] > * {
+    break-inside: avoid;
+  }
 }
 
 @layer components {

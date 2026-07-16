@@ -13,6 +13,7 @@ import { normalizeUrl } from "../services/page-analyzer.service";
 import { enqueueAnalysis, queueInfo } from "../services/analysis-queue.service";
 import { computeProfit, inr } from "../services/profit-calc.service";
 import { emailService } from "../services/email.service";
+import { buildCalcEmail } from "../services/email-templates.service";
 
 const router = Router();
 
@@ -630,23 +631,14 @@ router.post(
     // Email the results (best-effort).
     if (email && emailService.isEmailConfigured()) {
       const per = p.period === "year" ? "yearly" : "monthly";
-      const text = [
-        "Hi,",
-        "",
-        `Here's your Rath Infotech partnership profitability snapshot (${per}):`,
-        "",
-        `Clients: ${results.clients}`,
-        `Total ${per} revenue: ${inr(results.revenue)}`,
-        `Rath Infotech charges: ${inr(results.rathCharges)}`,
-        `Your internal expenses: ${inr(results.internalExpenses)}`,
-        `Total ${per} profit: ${inr(results.profit)}`,
-        "",
-        `By partnering with Rath Infotech, you can manage ${results.clients} client${results.clients === 1 ? "" : "s"} and earn an estimated ${per} profit of ${inr(results.profit)} without hiring and managing an in-house development team.`,
-        "",
-        "Ready to increase your agency profits? Let's schedule a demo.",
-        "",
-        "Rath Infotech and Web Solutions",
-      ].join("\n");
+      const text = buildCalcEmail({
+        period: per,
+        clients: results.clients,
+        revenue: inr(results.revenue),
+        rathCharges: inr(results.rathCharges),
+        internalExpenses: inr(results.internalExpenses),
+        profit: inr(results.profit),
+      });
       void emailService
         .sendEmail(email, "Your partnership profitability snapshot", text)
         .catch((e) => console.error("[calculator] email failed:", (e as Error)?.message));

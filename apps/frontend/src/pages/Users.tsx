@@ -76,6 +76,24 @@ export function UsersPage() {
     onError: () => toast.error("Password reset failed"),
   });
 
+  const roleMutation = useMutation({
+    mutationFn: ({ id, role }: { id: string; role: string }) => api.users.update(id, { role }),
+    onSuccess: () => {
+      toast.success("Role updated");
+      qc.invalidateQueries({ queryKey: ["users"] });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Role update failed"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.users.remove(id),
+    onSuccess: () => {
+      toast.success("User deleted");
+      qc.invalidateQueries({ queryKey: ["users"] });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? "Delete failed"),
+  });
+
   if (!isSuperAdmin) {
     return (
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -129,7 +147,19 @@ export function UsersPage() {
                     <td className="px-4 py-3 font-medium text-gray-900">{u.name}</td>
                     <td className="px-4 py-3 text-gray-600">{u.email}</td>
                     <td className="px-4 py-3">
-                      <Badge label={u.role.replace("_", " ")} className={ROLE_STYLE[u.role]} />
+                      {u.role === "SUPER_ADMIN" || isSelf ? (
+                        <Badge label={u.role.replace("_", " ")} className={ROLE_STYLE[u.role]} />
+                      ) : (
+                        <select
+                          value={u.role}
+                          onChange={(e) => roleMutation.mutate({ id: u.id, role: e.target.value })}
+                          disabled={roleMutation.isPending}
+                          className="rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
+                        >
+                          <option value="STAFF">Staff</option>
+                          <option value="ADMIN">Admin</option>
+                        </select>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {u.isActive ? (
@@ -166,6 +196,20 @@ export function UsersPage() {
                               Reactivate
                             </button>
                           )}
+                          <button
+                            onClick={() => {
+                              if (
+                                confirm(
+                                  `Delete ${u.name}? This permanently removes the account. (Users who have captured leads can't be deleted — deactivate them instead.)`,
+                                )
+                              )
+                                deleteMutation.mutate(u.id);
+                            }}
+                            disabled={deleteMutation.isPending}
+                            className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
                         </div>
                       )}
                     </td>

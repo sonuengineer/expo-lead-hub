@@ -132,6 +132,7 @@ router.get(
         submittedByUser: l.submittedByUser,
         playToken: l.playToken,
         gamePlayed: l.playToken ? playedSet.has(l.playToken) : false,
+        reportsSentCount: l.reportsSentCount,
         ...summarize(l.rawFormData),
       })),
       total,
@@ -257,9 +258,9 @@ router.post(
   "/:id/send-report",
   asyncHandler(async (req: Request, res: Response) => {
     const id = String(req.params.id);
-    const { sent, email, reason } = await sendReportsForLead(id);
+    const { sent, email, sentCount, reason } = await sendReportsForLead(id);
     if (sent === 0) throw new AppError(400, reason ?? "Nothing to send");
-    res.json({ sent, email, message: `Report sent to ${email}` });
+    res.json({ sent, email, sentCount, message: `Report sent to ${email}` });
   }),
 );
 

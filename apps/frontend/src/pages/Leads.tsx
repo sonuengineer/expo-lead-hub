@@ -27,6 +27,7 @@ interface LeadRow {
   submittedByUser?: { id: string; name: string } | null;
   playToken?: string | null;
   gamePlayed?: boolean;
+  reportsSentCount?: number;
 }
 
 export function LeadsPage() {
@@ -82,7 +83,12 @@ export function LeadsPage() {
 
   const sendReport = useMutation({
     mutationFn: (id: string) => api.leads.sendReport(id),
-    onSuccess: (res: any) => toast.success(res?.data?.message ?? "Report sent"),
+    onSuccess: (res: any) => {
+      const n = res?.data?.sentCount;
+      toast.success(res?.data?.message ?? "Report sent");
+      if (n != null) toast.success(`Sent ${n} time${n === 1 ? "" : "s"} so far`);
+      qc.invalidateQueries({ queryKey: ["leads"] });
+    },
     onError: (e: any) => toast.error(e?.response?.data?.message ?? "Couldn't send report"),
   });
 
@@ -293,14 +299,26 @@ export function LeadsPage() {
                         </button>
                       )}
 
-                      {/* Send report — only when a game result exists */}
+                      {/* Send report — only when a game result exists.
+                          Badge shows how many times the report was emailed. */}
                       <button
                         onClick={() => sendReport.mutate(lead.id)}
                         disabled={!lead.gamePlayed || sendReport.isPending}
-                        title={lead.gamePlayed ? "Email the report to this lead" : "No report yet"}
+                        title={
+                          lead.gamePlayed
+                            ? lead.reportsSentCount
+                              ? `Sent ${lead.reportsSentCount} time(s) — click to resend`
+                              : "Email the report to this lead"
+                            : "No report yet"
+                        }
                         className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
                       >
-                        <Mail size={14} /> Send
+                        <Mail size={14} /> {lead.reportsSentCount ? "Resend" : "Send"}
+                        {!!lead.reportsSentCount && (
+                          <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-100 px-1 text-[10px] font-bold text-emerald-700">
+                            {lead.reportsSentCount}
+                          </span>
+                        )}
                       </button>
 
                       {canDelete && (

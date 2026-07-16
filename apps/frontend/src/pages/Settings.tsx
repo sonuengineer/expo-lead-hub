@@ -11,10 +11,11 @@ interface Setting {
   label: string;
   group: string;
   secret: boolean;
-  type: "text" | "select";
+  type: "text" | "select" | "textarea";
   options?: string[];
+  hint?: string;
   configured: boolean;
-  source: "portal" | "env" | "none";
+  source: "portal" | "env" | "default" | "none";
   display: string;
 }
 
@@ -126,6 +127,8 @@ export function SettingsPage() {
       <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-medium text-indigo-700">Portal override</span>
     ) : s.source === "env" ? (
       <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">From server</span>
+    ) : s.source === "default" ? (
+      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">Default</span>
     ) : (
       <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">Not set</span>
     );
@@ -208,6 +211,13 @@ export function SettingsPage() {
                         </option>
                       ))}
                     </select>
+                  ) : s.type === "textarea" ? (
+                    <textarea
+                      value={val(s)}
+                      onChange={(e) => set(s.key, e.target.value)}
+                      rows={s.key === "EMAIL_SIGNATURE" ? 5 : 12}
+                      className={`${input} resize-y font-mono text-xs leading-5`}
+                    />
                   ) : (
                     <input
                       value={val(s)}
@@ -218,6 +228,7 @@ export function SettingsPage() {
                       className={input}
                     />
                   )}
+                  {s.hint && <p className="mt-1 text-[11px] leading-4 text-gray-400">{s.hint}</p>}
                 </div>
               ))}
             </div>

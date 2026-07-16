@@ -205,4 +205,36 @@ router.post(
   }),
 );
 
+// ── Delete User (SUPER_ADMIN only) ────────
+router.delete(
+  "/:userId",
+  requireRole("SUPER_ADMIN"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = String(req.params.userId);
+
+    if (req.user?.id === userId) {
+      throw new AppError(400, "Cannot delete your own account");
+    }
+
+    const target = await prisma.user.findUnique({ where: { id: userId } });
+    if (!target) throw new AppError(404, "User not found");
+
+    try {
+      await prisma.user.delete({ where: { id: userId } });
+    } catch (e: any) {
+      // Foreign-key violation → the user has activity (leads/analyses) that
+      // references them. Hard delete isn't safe; suggest deactivation instead.
+      if (e?.code === "P2003") {
+        throw new AppError(
+          400,
+          "This user has captured leads or run analyses, so they can't be deleted. Deactivate them instead.",
+        );
+      }
+      throw e;
+    }
+
+    res.json({ message: "User deleted" });
+  }),
+);
+
 export { router as usersRouter };

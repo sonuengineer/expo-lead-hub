@@ -5,6 +5,7 @@ import { generateRoast } from "./ai-roast.service";
 import { generateComparison } from "./ai-score.service";
 import { fetchDomainMetrics, fetchCompetitors, type DomainMetrics } from "./dataforseo.service";
 import { emailService } from "./email.service";
+import { buildReportEmail } from "./email-templates.service";
 import { reportLink } from "../utils/play-link";
 import { alertOwnerOnKeyError } from "./owner-alert.service";
 import type { ComparisonResult } from "./ai-score.service";
@@ -28,37 +29,32 @@ interface Job {
 // Email the finished report to the visitor (public play sessions only).
 async function emailReport(job: Job, result: ComparisonResult, metrics?: DomainMetrics | null) {
   if (!job.email || !emailService.isEmailConfigured()) return;
-  const y = result.your?.overallScore ?? "—";
-  const c = result.competitor?.overallScore ?? "—";
-  const winner =
-    result.verdict?.winner === "you" ? "You’re ahead 🎉" : result.verdict?.winner === "competitor" ? "Competitor leads" : "It’s close";
   const num = (v: number | null | undefined) => (v == null ? "—" : v.toLocaleString());
+  const m = metrics ?? ({} as DomainMetrics);
 
-  const lines = [
-    "Hi,",
-    "",
-    "Your AI website audit is ready:",
-    "",
-    `Overall score — Your site: ${y}/100  |  Competitor: ${c}/100`,
-    `Verdict: ${winner}`,
-    result.verdict?.reasoning ? `\n${result.verdict.reasoning}` : "",
-  ];
-
-  if (metrics && (metrics.da != null || metrics.referringDomains != null || metrics.keywordCount != null)) {
-    lines.push(
-      "",
-      "── Your site's SEO snapshot ──",
-      `Domain Authority: ${num(metrics.da)}   Page Authority: ${num(metrics.pa)}`,
-      `Referring domains: ${num(metrics.referringDomains)}   Backlinks: ${num(metrics.backlinks)}`,
-      `Ranking keywords: ${num(metrics.keywordCount)}   Est. organic traffic: ${num(metrics.organicTraffic)}`,
-    );
-    if (metrics.topKeywords?.length) lines.push(`Top keywords: ${metrics.topKeywords.slice(0, 5).join(", ")}`);
-  }
-
-  lines.push("", `See the full report: ${reportLink(job.analysisId)}`, "", "Rath Infotech and Web Solutions");
+  const body = buildReportEmail({
+    yourScore: result.your?.overallScore ?? "—",
+    competitorScore: result.competitor?.overallScore ?? "—",
+    reasoning: result.verdict?.reasoning ?? "",
+    da: num(m.da),
+    pa: num(m.pa),
+    referringDomains: num(m.referringDomains),
+    backlinks: num(m.backlinks),
+    keywords: num(m.keywordCount),
+    traffic: num(m.organicTraffic),
+    reportLink: reportLink(job.analysisId),
+  });
 
   await emailService
-    .sendEmail(job.email, "Your AI Website Audit is ready", lines.join("\n"))
+    .sendEmail(job.email, "Your AI Website Audit is ready", body)
+    .then(async () => {
+      // Reflect the auto-send in the lead's "Sent" counter (Leads list).
+      if (job.playToken) {
+        await prisma.lead
+          .updateMany({ where: { playToken: job.playToken }, data: { reportsSentCount: { increment: 1 } } })
+          .catch(() => {});
+      }
+    })
     .catch((e) => console.error("[score] result email failed:", (e as Error)?.message));
 }
 

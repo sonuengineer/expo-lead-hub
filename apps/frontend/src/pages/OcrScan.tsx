@@ -6,7 +6,7 @@ import { api } from "../lib/api-client";
 import { downscale } from "../lib/ocr";
 import { useAuthStore } from "../stores/auth.store";
 import { DynamicForm, type FormFieldDef } from "../components/DynamicForm";
-import { Link } from "react-router-dom";
+import { appUrl } from "../lib/app-url";
 
 interface ParsedData {
   companyName?: string;
@@ -170,15 +170,19 @@ export function OcrScanPage() {
       <div className="mx-auto max-w-md rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
         <CheckCircle2 className="mx-auto mb-3 text-green-500" size={48} />
         <h2 className="text-xl font-bold text-gray-900">Lead captured</h2>
-        <p className="mt-2 text-sm text-gray-600">Saved. Now let them play a quick game right here.</p>
+        <p className="mt-2 text-sm text-gray-600">
+          Saved. The game opened in a new tab — if a pop-up was blocked, use the button below.
+        </p>
 
         {playToken && (
-          <Link
-            to={`/play/${playToken}`}
+          <a
+            href={appUrl(`/play/${playToken}`)}
+            target="_blank"
+            rel="noopener noreferrer"
             className="mt-5 inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
           >
-            <Gamepad2 size={16} /> Play now
-          </Link>
+            <Gamepad2 size={16} /> Open game
+          </a>
         )}
 
         <div className="mt-6">
@@ -304,7 +308,22 @@ export function OcrScanPage() {
                     key={scan ? scanKey : "manual"}
                     fields={formFields}
                     submitting={submitMutation.isPending}
-                    onSubmit={(values) => submitMutation.mutate(values)}
+                    onSubmit={(values) => {
+                      // Open the game in a NEW tab right away (inside this click,
+                      // so popup blockers allow it); point it at the play link
+                      // once the token comes back. The capture tab stays put for
+                      // the next visitor.
+                      const gameTab = window.open("about:blank", "_blank");
+                      submitMutation.mutate(values, {
+                        onSuccess: (res: any) => {
+                          const token = res?.data?.playToken;
+                          if (!gameTab) return;
+                          if (token) gameTab.location.href = appUrl(`/play/${token}`);
+                          else gameTab.close();
+                        },
+                        onError: () => gameTab?.close(),
+                      });
+                    }}
                   />
                 );
               })()

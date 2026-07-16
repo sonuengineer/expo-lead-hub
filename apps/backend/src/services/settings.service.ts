@@ -11,9 +11,49 @@ export interface SettingDef {
   label: string;
   group: string;
   secret?: boolean; // masked in the UI + never returned in full
-  type?: "text" | "select";
+  type?: "text" | "select" | "textarea";
   options?: string[];
+  hint?: string; // e.g. available placeholders
 }
+
+// Default email copy — editable from the portal, stored in the DB when changed.
+export const DEFAULT_SIGNATURE =
+  "Akshay Narvekar\nRath Infotech and Web Solutions\nsales@rathinfotech.com\n+91 727 727 1 727\nrathinfotech.com";
+
+export const DEFAULT_CALC_TEMPLATE = `Hi,
+
+Here's your Rath Infotech partnership profitability snapshot ({period}):
+
+Clients: {clients}
+Total {period} revenue: {revenue}
+Rath Infotech charges: {rathCharges}
+Your internal expenses: {internalExpenses}
+Total {period} profit: {profit}
+
+By partnering with Rath Infotech, you can manage {clients} clients and earn an estimated {period} profit of {profit} without hiring and managing an in-house development team.
+
+Ready to increase your agency profits? Let's schedule a demo.`;
+
+export const DEFAULT_REPORT_TEMPLATE = `Hi,
+
+Your AI website audit is ready:
+
+Overall score — Your site: {yourScore}/100  |  Competitor: {competitorScore}/100
+
+{reasoning}
+
+── Your site's SEO snapshot ──
+Domain Authority: {da}   Page Authority: {pa}
+Referring domains: {referringDomains}   Backlinks: {backlinks}
+Ranking keywords: {keywords}   Est. organic traffic: {traffic}
+
+See the full report: {reportLink}`;
+
+const DEFAULTS: Record<string, string> = {
+  EMAIL_SIGNATURE: DEFAULT_SIGNATURE,
+  EMAIL_CALC_TEMPLATE: DEFAULT_CALC_TEMPLATE,
+  EMAIL_REPORT_TEMPLATE: DEFAULT_REPORT_TEMPLATE,
+};
 
 // The integration credentials that can be managed from the portal.
 export const SETTINGS: SettingDef[] = [
@@ -32,6 +72,27 @@ export const SETTINGS: SettingDef[] = [
   { key: "OPENWA_BASE_URL", label: "OpenWA base URL", group: "WhatsApp (OpenWA)" },
   { key: "OPENWA_API_KEY", label: "OpenWA API key", group: "WhatsApp (OpenWA)", secret: true },
   { key: "OPENWA_SESSION_ID", label: "OpenWA session id", group: "WhatsApp (OpenWA)" },
+  {
+    key: "EMAIL_SIGNATURE",
+    label: "Email signature (sign-off block)",
+    group: "Email templates",
+    type: "textarea",
+    hint: "First line is shown bold as the sender name. Email & website lines auto-link.",
+  },
+  {
+    key: "EMAIL_CALC_TEMPLATE",
+    label: "Calculator result email",
+    group: "Email templates",
+    type: "textarea",
+    hint: "Placeholders: {period} {clients} {revenue} {rathCharges} {internalExpenses} {profit}. The signature is added automatically.",
+  },
+  {
+    key: "EMAIL_REPORT_TEMPLATE",
+    label: "AI Score report email",
+    group: "Email templates",
+    type: "textarea",
+    hint: "Placeholders: {yourScore} {competitorScore} {reasoning} {da} {pa} {referringDomains} {backlinks} {keywords} {traffic} {reportLink}. The signature is added automatically.",
+  },
 ];
 const MANAGED = new Set(SETTINGS.map((s) => s.key));
 
@@ -84,6 +145,11 @@ export function settingInt(key: string, fallback: number): number {
   return Number.isFinite(v) ? v : fallback;
 }
 
+// Like setting(), but falls back to a built-in default (used for email copy).
+export function settingWithDefault(key: string): string {
+  return setting(key) || DEFAULTS[key] || "";
+}
+
 // Gemini keys in priority order (primary + backups), non-empty only.
 export function geminiKeys(): string[] {
   return [setting("GEMINI_API_KEY"), setting("GEMINI_API_KEY_2"), setting("GEMINI_API_KEY_3")]
@@ -116,8 +182,9 @@ export function settingsStatus() {
   return SETTINGS.map((s) => {
     const override = cache[s.key];
     const envVal = String((env as any)[s.key] ?? "");
+    const def = DEFAULTS[s.key] ?? "";
     const hasOverride = override != null && override !== "";
-    const effective = hasOverride ? override : envVal;
+    const effective = hasOverride ? override : envVal || def;
     const mask = (v: string) => (!v ? "" : s.secret ? "••••" + v.slice(-4) : v);
     return {
       key: s.key,
@@ -126,8 +193,9 @@ export function settingsStatus() {
       secret: !!s.secret,
       type: s.type ?? "text",
       options: s.options,
+      hint: s.hint,
       configured: Boolean(effective),
-      source: hasOverride ? "portal" : envVal ? "env" : "none",
+      source: hasOverride ? "portal" : envVal ? "env" : def ? "default" : "none",
       display: mask(effective),
     };
   });
