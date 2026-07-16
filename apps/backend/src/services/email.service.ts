@@ -1,13 +1,14 @@
 import axios from "axios";
 import nodemailer from "nodemailer";
 import { env } from "../config/env";
+import { setting } from "./settings.service";
 
 let transporter: nodemailer.Transporter | null = null;
 
 // The "From" address is shared by both providers. Must be on a domain you've
 // authenticated (e.g. seo@rathinfotech.com verified in Resend).
 function fromAddress(): string | undefined {
-  return env.EMAIL_FROM || env.SMTP_FROM;
+  return setting("EMAIL_FROM") || env.SMTP_FROM;
 }
 
 function getTransporter(): nodemailer.Transporter {
@@ -27,7 +28,7 @@ function getTransporter(): nodemailer.Transporter {
 // Email is usable if we have a From address AND at least one transport:
 // Resend (preferred) or SMTP.
 export function isEmailConfigured(): boolean {
-  return Boolean(fromAddress()) && Boolean(env.RESEND_API_KEY || env.SMTP_HOST);
+  return Boolean(fromAddress()) && Boolean(setting("RESEND_API_KEY") || env.SMTP_HOST);
 }
 
 export function emailFrom(): string | null {
@@ -89,13 +90,14 @@ export async function sendEmail(
 
   // Prefer Resend's HTTP API — sends over HTTPS, so no outbound SMTP ports
   // needed (which some hosts block).
-  if (env.RESEND_API_KEY) {
+  const resendKey = setting("RESEND_API_KEY");
+  if (resendKey) {
     await axios.post(
       "https://api.resend.com/emails",
       { from, to, subject, text, html: htmlBody },
       {
         headers: {
-          Authorization: `Bearer ${env.RESEND_API_KEY}`,
+          Authorization: `Bearer ${resendKey}`,
           "Content-Type": "application/json",
         },
         timeout: 15_000,

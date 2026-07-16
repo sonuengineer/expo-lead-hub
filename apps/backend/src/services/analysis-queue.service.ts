@@ -6,6 +6,7 @@ import { generateComparison } from "./ai-score.service";
 import { fetchDomainMetrics, fetchCompetitors, type DomainMetrics } from "./dataforseo.service";
 import { emailService } from "./email.service";
 import { reportLink } from "../utils/play-link";
+import { alertOwnerOnKeyError } from "./owner-alert.service";
 import type { ComparisonResult } from "./ai-score.service";
 
 // In-process job queue for website analyses. Up to AI_CONCURRENCY run at once;
@@ -216,6 +217,8 @@ async function runJob(job: Job) {
         data: { status: "FAILED", error: String(e?.message || "Analysis failed").slice(0, 500) },
       })
       .catch(() => {});
-    await syncGameResult(job, "FAILED", String(e?.message || "Analysis failed"));
+    const msg = String(e?.message || "Analysis failed");
+    await syncGameResult(job, "FAILED", msg);
+    void alertOwnerOnKeyError("AI Score analysis", msg);
   }
 }

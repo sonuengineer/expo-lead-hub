@@ -1,5 +1,5 @@
 import { prisma } from "@elc/db";
-import { env } from "../config/env";
+import { setting } from "./settings.service";
 import { whatsAppService } from "./whatsapp.service";
 import { emailService } from "./email.service";
 import { playLink } from "../utils/play-link";
@@ -79,7 +79,7 @@ export async function notifyLeadReceived(leadId: string): Promise<void> {
     event: lead.event.name,
     link: lead.playToken ? playLink(lead.playToken) : "",
   };
-  const sessionId = env.OPENWA_SESSION_ID;
+  const sessionId = setting("OPENWA_SESSION_ID") || "default";
   const visitorPhone = pick(data, PHONE_KEYS);
   const visitorEmail = pick(data, EMAIL_KEYS);
   if (!visitorPhone && !visitorEmail) return; // nowhere to send
@@ -138,7 +138,7 @@ export async function notifyLeadReceived(leadId: string): Promise<void> {
       .sendEmail(visitorEmail, render(DEFAULT_EMAIL_SUBJECT, vars), render(DEFAULT_EMAIL_WELCOME, vars))
       .catch((e) => console.error("[email] default notification failed:", (e as Error)?.message));
   }
-  if (!waHandled && visitorPhone && env.OPENWA_BASE_URL && env.OPENWA_API_KEY) {
+  if (!waHandled && visitorPhone && setting("OPENWA_BASE_URL") && setting("OPENWA_API_KEY")) {
     const chatId = whatsAppService.toChatId(visitorPhone);
     const sid = await whatsAppService.resolveSessionId(sessionId).catch(() => sessionId);
     await whatsAppService

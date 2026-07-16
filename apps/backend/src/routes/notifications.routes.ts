@@ -8,6 +8,7 @@ import { asyncHandler } from "../utils/async-handler";
 import { whatsAppService } from "../services/whatsapp.service";
 import { emailService } from "../services/email.service";
 import { env } from "../config/env";
+import { setting } from "../services/settings.service";
 
 const router = Router();
 router.use(authenticate);
@@ -97,23 +98,23 @@ router.delete(
 router.get(
   "/whatsapp/status",
   asyncHandler(async (_req: Request, res: Response) => {
-    const baseUrlSet = Boolean(env.OPENWA_BASE_URL);
-    const apiKeySet = Boolean(env.OPENWA_API_KEY);
+    const baseUrlSet = Boolean(setting("OPENWA_BASE_URL"));
+    const apiKeySet = Boolean(setting("OPENWA_API_KEY"));
     const result: any = {
       configured: baseUrlSet && apiKeySet,
       baseUrlSet,
       apiKeySet,
-      baseUrl: env.OPENWA_BASE_URL ?? null,
-      defaultSessionId: env.OPENWA_SESSION_ID,
+      baseUrl: setting("OPENWA_BASE_URL") || null,
+      defaultSessionId: setting("OPENWA_SESSION_ID") || "default",
       connected: false,
       sessions: [],
     };
 
     if (baseUrlSet && apiKeySet) {
       try {
-        const base = env.OPENWA_BASE_URL!.replace(/\/+$/, "");
+        const base = setting("OPENWA_BASE_URL").replace(/\/+$/, "");
         const { data } = await axios.get(`${base}/api/sessions`, {
-          headers: { "X-API-Key": env.OPENWA_API_KEY! },
+          headers: { "X-API-Key": setting("OPENWA_API_KEY") },
           timeout: 8000,
         });
         result.connected = true;
@@ -134,7 +135,7 @@ router.get(
     res.json({
       configured: emailService.isEmailConfigured(),
       from: emailService.emailFrom(),
-      provider: env.RESEND_API_KEY ? "resend" : env.SMTP_HOST ? "smtp" : null,
+      provider: setting("RESEND_API_KEY") ? "resend" : env.SMTP_HOST ? "smtp" : null,
     });
   }),
 );
@@ -150,12 +151,12 @@ router.post(
   "/whatsapp/test",
   asyncHandler(async (req: Request, res: Response) => {
     const { phone, sessionId, message } = testSchema.parse(req.body);
-    if (!env.OPENWA_BASE_URL || !env.OPENWA_API_KEY) {
+    if (!setting("OPENWA_BASE_URL") || !setting("OPENWA_API_KEY")) {
       throw new AppError(400, "OpenWA is not configured (set OPENWA_BASE_URL / OPENWA_API_KEY)");
     }
     try {
       await whatsAppService.sendText(
-        sessionId || env.OPENWA_SESSION_ID,
+        sessionId || setting("OPENWA_SESSION_ID") || "default",
         whatsAppService.toChatId(phone),
         message || "Test message from Exhibition Lead Capture",
       );

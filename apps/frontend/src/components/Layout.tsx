@@ -12,12 +12,14 @@ import {
   Sparkles,
   MonitorPlay,
   Gamepad2,
+  Settings,
   LogOut,
   Menu,
   X,
 } from "lucide-react";
 import { useState } from "react";
 import { useAuthStore } from "@/stores/auth.store";
+import { OWNER_EMAIL } from "@/pages/Settings";
 import clsx from "clsx";
 
 const ADMIN = ["ADMIN", "SUPER_ADMIN"];
@@ -36,6 +38,7 @@ const navItems = [
   { to: "/automation", label: "Automation", icon: Workflow, roles: ADMIN },
   // { to: "/partnership-calc", label: "Partnership Calc", icon: Calculator, roles: ADMIN },
   { to: "/users", label: "Users", icon: UserCog, roles: ["SUPER_ADMIN"] },
+  { to: "/settings", label: "Settings", icon: Settings, owner: true },
 ];
 
 export function Layout() {
@@ -75,7 +78,10 @@ export function Layout() {
 
         <nav className="flex-1 space-y-1 px-3 py-4">
           {navItems
-            .filter((item) => !item.roles || (user && item.roles.includes(user.role)))
+            .filter((item: any) => {
+              if (item.owner) return (user?.email || "").toLowerCase() === OWNER_EMAIL.toLowerCase();
+              return !item.roles || (user && item.roles.includes(user.role));
+            })
             .map((item) => {
             const isActive =
               item.to === "/"

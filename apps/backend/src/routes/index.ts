@@ -10,6 +10,7 @@ import { syncQueueRouter } from "./sync-queue.routes";
 import { aiRouter } from "./ai.routes";
 import { publicRouter } from "./public.routes";
 import { notificationsRouter } from "./notifications.routes";
+import { settingsRouter } from "./settings.routes";
 
 const apiRouter = Router();
 
@@ -24,5 +25,6 @@ apiRouter.use("/sync-queue", syncQueueRouter);
 apiRouter.use("/ai", aiRouter);
 apiRouter.use("/public", publicRouter);
 apiRouter.use("/notifications", notificationsRouter);
+apiRouter.use("/settings", settingsRouter);
 
 export { apiRouter };

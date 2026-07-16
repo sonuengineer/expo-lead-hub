@@ -1,5 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { env } from "../config/env";
+import { withGeminiModel } from "./gemini.service";
 import { AppError } from "../middleware/error-handler";
 
 // Reliable business-card reading via Gemini vision (replaces flaky Tesseract).
@@ -28,26 +27,23 @@ Return ONLY this JSON (use "" for anything not present):
 }`;
 
 export async function parseCardWithAI(dataUrl: string): Promise<{ parsed: CardFields; rawText: string }> {
-  if (!env.GEMINI_API_KEY) {
-    throw new AppError(503, "AI card reading is not configured. Set GEMINI_API_KEY.");
-  }
   const m = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
   if (!m) throw new AppError(400, "Invalid image data");
 
-  const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({
-    model: env.GEMINI_MODEL,
-    generationConfig: { responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 1024 },
-  });
-
   let text: string;
   try {
-    const result = await model.generateContent([
-      { text: PROMPT },
-      { inlineData: { mimeType: m[1]!, data: m[2]! } },
-    ]);
-    text = result.response.text();
+    text = await withGeminiModel(
+      { responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 1024 },
+      async (model) => {
+        const result = await model.generateContent([
+          { text: PROMPT },
+          { inlineData: { mimeType: m[1]!, data: m[2]! } },
+        ]);
+        return result.response.text() as string;
+      },
+    );
   } catch (err: any) {
+    if (err instanceof AppError) throw err;
     throw new AppError(502, `Card reading failed: ${err?.message ?? "unknown error"}`);
   }
 

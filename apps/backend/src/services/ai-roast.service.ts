@@ -1,5 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { env } from "../config/env";
+import { withGeminiModel } from "./gemini.service";
 import { AppError } from "../middleware/error-handler";
 import type { PageCapture } from "./page-analyzer.service";
 
@@ -72,16 +71,6 @@ Produce a JSON object with three parts:
 Return ONLY valid JSON, no markdown, no commentary.`;
 
 export async function generateRoast(capture: PageCapture): Promise<RoastResult> {
-  if (!env.GEMINI_API_KEY) {
-    throw new AppError(503, "AI is not configured. Set GEMINI_API_KEY to enable website roasts.");
-  }
-
-  const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({
-    model: env.GEMINI_MODEL,
-    generationConfig: { responseMimeType: "application/json", temperature: 0.9, maxOutputTokens: 4096 },
-  });
-
   const context = `Website: ${capture.finalUrl}
 Title: ${capture.title ?? "(none)"}
 Meta description: ${capture.description ?? "(none)"}
@@ -93,9 +82,12 @@ Lighthouse scores (0-100): Performance ${capture.scores.performance ?? "n/a"}, S
 
   let text: string;
   try {
-    const result = await model.generateContent(parts);
-    text = result.response.text();
+    text = await withGeminiModel(
+      { responseMimeType: "application/json", temperature: 0.9, maxOutputTokens: 4096 },
+      async (model) => (await model.generateContent(parts)).response.text() as string,
+    );
   } catch (err: any) {
+    if (err instanceof AppError) throw err;
     throw new AppError(502, `AI request failed: ${err?.message ?? "unknown error"}`);
   }
 

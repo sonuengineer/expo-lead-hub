@@ -250,6 +250,14 @@ export const api = {
     emailTest: (data: any) => getApiClient().post("/notifications/email/test", data),
   },
 
+  // Settings (owner only)
+  settings: {
+    get: () => getApiClient().get("/settings"),
+    save: (updates: Record<string, string>) => getApiClient().put("/settings", { updates }),
+    test: (integration: string) => getApiClient().post(`/settings/test/${integration}`),
+    dataforseoBalance: () => getApiClient().get("/settings/dataforseo-balance"),
+  },
+
   // Users
   users: {
     list: () => getApiClient().get("/users"),

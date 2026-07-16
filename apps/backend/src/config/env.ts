@@ -14,6 +14,8 @@ const envSchema = z.object({
   ENCRYPTION_KEY: z.string().optional(),
   // AI Experience Hub (all optional — feature is disabled until keys are set)
   GEMINI_API_KEY: z.string().optional(),
+  GEMINI_API_KEY_2: z.string().optional(), // backup — used if the primary errors
+  GEMINI_API_KEY_3: z.string().optional(), // backup 2
   GEMINI_MODEL: z.string().default("gemini-3.1-flash-lite"),
   AI_CONCURRENCY: z.coerce.number().int().min(1).max(10).default(3), // roasts running at once; rest queue
   PAGESPEED_API_KEY: z.string().optional(), // optional; PSI works without one at lower rate limits

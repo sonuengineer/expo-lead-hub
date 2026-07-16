@@ -1,5 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { env } from "../config/env";
+import { withGeminiModel } from "./gemini.service";
 import { AppError } from "../middleware/error-handler";
 import type { PageCapture, PageScores } from "./page-analyzer.service";
 
@@ -75,16 +74,6 @@ export async function generateComparison(
   competitor: PageCapture,
   competitor2?: PageCapture,
 ): Promise<ComparisonResult> {
-  if (!env.GEMINI_API_KEY) {
-    throw new AppError(503, "AI is not configured. Set GEMINI_API_KEY to enable the score game.");
-  }
-
-  const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({
-    model: env.GEMINI_MODEL,
-    generationConfig: { responseMimeType: "application/json", temperature: 0.7, maxOutputTokens: 4096 },
-  });
-
   // When a 2nd competitor is present, ask the model to score all three and pick
   // the overall winner among them; otherwise the original two-way prompt.
   const prompt = competitor2
@@ -104,9 +93,12 @@ export async function generateComparison(
 
   let text: string;
   try {
-    const result = await model.generateContent(parts);
-    text = result.response.text();
+    text = await withGeminiModel(
+      { responseMimeType: "application/json", temperature: 0.7, maxOutputTokens: 4096 },
+      async (model) => (await model.generateContent(parts)).response.text() as string,
+    );
   } catch (err: any) {
+    if (err instanceof AppError) throw err;
     throw new AppError(502, `AI request failed: ${err?.message ?? "unknown error"}`);
   }
 

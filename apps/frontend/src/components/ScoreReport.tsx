@@ -1,6 +1,72 @@
 import { useEffect, useState } from "react";
-import { Trophy, Crown, Sparkles, Monitor } from "lucide-react";
+import { Trophy, Crown, Sparkles, Monitor, Download } from "lucide-react";
 import { ScoreRing, scoreColor } from "./ScoreRing";
+
+const YOU_COLOR = "#10b981"; // emerald
+const COMP_COLOR = "#f43f5e"; // rose
+const COMP2_COLOR = "#f59e0b"; // amber
+
+// ── Radar (spider) chart — you vs competitor across the AI dimensions ──
+function RadarChart({
+  axes,
+  series,
+  size = 260,
+}: {
+  axes: string[];
+  series: { label: string; color: string; values: number[] }[];
+  size?: number;
+}) {
+  const cx = size / 2;
+  const cy = size / 2;
+  const R = size / 2 - 42;
+  const n = axes.length;
+  const angle = (i: number) => (-90 + (i * 360) / n) * (Math.PI / 180);
+  const pt = (i: number, v: number) => {
+    const r = (R * Math.max(0, Math.min(100, v))) / 100;
+    return [cx + r * Math.cos(angle(i)), cy + r * Math.sin(angle(i))];
+  };
+  const poly = (values: number[]) => values.map((v, i) => pt(i, v).join(",")).join(" ");
+
+  return (
+    <svg viewBox={`0 0 ${size} ${size}`} className="mx-auto h-auto w-full max-w-[300px]">
+      {/* grid rings */}
+      {[25, 50, 75, 100].map((ring) => (
+        <polygon
+          key={ring}
+          points={axes.map((_, i) => pt(i, ring).join(",")).join(" ")}
+          fill="none"
+          stroke="#e5e7eb"
+          strokeWidth={1}
+        />
+      ))}
+      {/* spokes */}
+      {axes.map((_, i) => {
+        const [x, y] = pt(i, 100);
+        return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="#e5e7eb" strokeWidth={1} />;
+      })}
+      {/* series polygons */}
+      {series.map((s, si) => (
+        <polygon key={si} points={poly(s.values)} fill={s.color} fillOpacity={0.18} stroke={s.color} strokeWidth={2} />
+      ))}
+      {/* axis labels */}
+      {axes.map((label, i) => {
+        const [x, y] = pt(i, 118);
+        return (
+          <text
+            key={i}
+            x={x}
+            y={y}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            className="fill-gray-500 text-[10px] font-semibold uppercase"
+          >
+            {label}
+          </text>
+        );
+      })}
+    </svg>
+  );
+}
 
 interface SiteScore {
   overallScore?: number;
@@ -115,20 +181,22 @@ function MetricsCol({ title, m, accent }: { title: string; m: DomainMetrics | nu
 function Bar({ label, you, comp }: { label: string; you?: number; comp?: number }) {
   const y = you ?? 0;
   const c = comp ?? 0;
+  const youWins = y > c;
+  const compWins = c > y;
   return (
     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
-      <div className="flex items-center justify-end gap-2">
-        <span className="font-semibold" style={{ color: scoreColor(you) }}>{you ?? "–"}</span>
+      <div className={`flex items-center justify-end gap-2 transition-opacity ${compWins ? "opacity-40" : ""}`}>
+        <span className="font-semibold tabular-nums" style={{ color: scoreColor(you) }}>{you ?? "–"}</span>
         <div className="h-2 w-24 overflow-hidden rounded-full bg-gray-100">
           <div className="ml-auto h-full rounded-full" style={{ width: `${y}%`, backgroundColor: scoreColor(you), marginLeft: "auto", float: "right" }} />
         </div>
       </div>
       <span className="w-24 text-center text-xs font-medium uppercase tracking-wide text-gray-500">{label}</span>
-      <div className="flex items-center gap-2">
+      <div className={`flex items-center gap-2 transition-opacity ${youWins ? "opacity-40" : ""}`}>
         <div className="h-2 w-24 overflow-hidden rounded-full bg-gray-100">
           <div className="h-full rounded-full" style={{ width: `${c}%`, backgroundColor: scoreColor(comp) }} />
         </div>
-        <span className="font-semibold" style={{ color: scoreColor(comp) }}>{comp ?? "–"}</span>
+        <span className="font-semibold tabular-nums" style={{ color: scoreColor(comp) }}>{comp ?? "–"}</span>
       </div>
     </div>
   );
@@ -149,6 +217,18 @@ export function ScoreReport({ data }: { data: Comparison }) {
   const comp2Metrics = data.audit?.metrics?.competitor2 ?? null;
   const competitors = data.audit?.competitors ?? [];
 
+  const radarAxes = ["UI", "UX", "SEO", "Conv", "LLM"];
+  const radarSeries = [
+    { label: hostOf(data.url) || "You", color: YOU_COLOR, values: [your.ui ?? 0, your.ux ?? 0, your.seo ?? 0, your.conversion ?? 0, your.llmScore ?? 0] },
+    { label: hostOf(data.competitorUrl) || "Competitor", color: COMP_COLOR, values: [comp.ui ?? 0, comp.ux ?? 0, comp.seo ?? 0, comp.conversion ?? 0, comp.llmScore ?? 0] },
+  ];
+  if (comp2)
+    radarSeries.push({
+      label: hostOf(data.competitorUrl2) || "Competitor 2",
+      color: COMP2_COLOR,
+      values: [comp2.ui ?? 0, comp2.ux ?? 0, comp2.seo ?? 0, comp2.conversion ?? 0, comp2.llmScore ?? 0],
+    });
+
   return (
     <div
       className="space-y-6 antialiased [font-variant-numeric:tabular-nums] [-webkit-font-smoothing:antialiased]"
@@ -157,6 +237,17 @@ export function ScoreReport({ data }: { data: Comparison }) {
           '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       }}
     >
+      {/* Toolbar */}
+      <div className="flex items-center justify-between print:hidden">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-gray-400">Website Audit Report</h2>
+        <button
+          onClick={() => window.print()}
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+        >
+          <Download size={16} /> Download PDF
+        </button>
+      </div>
+
       {/* Verdict banner */}
       <div className={`rounded-2xl p-6 text-center text-white shadow-lg ${youWin ? "bg-gradient-to-r from-emerald-500 to-teal-600" : tie ? "bg-gradient-to-r from-slate-500 to-slate-700" : "bg-gradient-to-r from-orange-500 to-rose-600"}`}>
         <Trophy className="mx-auto mb-1.5" size={26} />
@@ -179,22 +270,39 @@ export function ScoreReport({ data }: { data: Comparison }) {
         )}
       </div>
 
-      {/* Category comparison */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="mb-4 grid grid-cols-[1fr_auto_1fr] text-xs font-semibold uppercase tracking-wide text-gray-400">
-          <span className="text-right">You</span><span className="w-24 text-center">Metric</span><span>Competitor</span>
+      {/* Radar + category comparison */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,340px)_1fr]">
+        {/* Radar */}
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-gray-500">At a glance</h3>
+          <RadarChart axes={radarAxes} series={radarSeries} />
+          <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1">
+            {radarSeries.map((s, i) => (
+              <span key={i} className="inline-flex items-center gap-1.5 text-xs text-gray-600">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+                {s.label}
+              </span>
+            ))}
+          </div>
         </div>
-        <div className="space-y-3">
-          <Bar label="UI" you={your.ui} comp={comp.ui} />
-          <Bar label="UX" you={your.ux} comp={comp.ux} />
-          <Bar label="SEO" you={your.seo} comp={comp.seo} />
-          <Bar label="Conversion" you={your.conversion} comp={comp.conversion} />
-          {(your.llmScore != null || comp.llmScore != null) && <Bar label="LLM" you={your.llmScore} comp={comp.llmScore} />}
-          {(lh.performance != null || clh.performance != null) && <Bar label="Performance" you={lh.performance ?? undefined} comp={clh.performance ?? undefined} />}
-          {(lh.accessibility != null || clh.accessibility != null) && <Bar label="Accessibility" you={lh.accessibility ?? undefined} comp={clh.accessibility ?? undefined} />}
-          {(lh.bestPractices != null || clh.bestPractices != null) && <Bar label="Best Practices" you={lh.bestPractices ?? undefined} comp={clh.bestPractices ?? undefined} />}
+
+        {/* Category comparison */}
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 grid grid-cols-[1fr_auto_1fr] text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <span className="text-right">You</span><span className="w-24 text-center">Metric</span><span>Competitor</span>
+          </div>
+          <div className="space-y-3">
+            <Bar label="UI" you={your.ui} comp={comp.ui} />
+            <Bar label="UX" you={your.ux} comp={comp.ux} />
+            <Bar label="SEO" you={your.seo} comp={comp.seo} />
+            <Bar label="Conversion" you={your.conversion} comp={comp.conversion} />
+            {(your.llmScore != null || comp.llmScore != null) && <Bar label="LLM" you={your.llmScore} comp={comp.llmScore} />}
+            {(lh.performance != null || clh.performance != null) && <Bar label="Performance" you={lh.performance ?? undefined} comp={clh.performance ?? undefined} />}
+            {(lh.accessibility != null || clh.accessibility != null) && <Bar label="Accessibility" you={lh.accessibility ?? undefined} comp={clh.accessibility ?? undefined} />}
+            {(lh.bestPractices != null || clh.bestPractices != null) && <Bar label="Best Practices" you={lh.bestPractices ?? undefined} comp={clh.bestPractices ?? undefined} />}
+          </div>
+          <p className="mt-3 text-center text-xs text-gray-400">The stronger side shows in full colour. UI / UX / Conversion / LLM are AI scores; Performance / Accessibility are Lighthouse.</p>
         </div>
-        <p className="mt-3 text-center text-xs text-gray-400">UI / UX / Conversion / LLM are AI scores. Performance / Accessibility are Lighthouse (when a PSI key is configured).</p>
       </div>
 
       {/* Domain authority + keywords (DataForSEO) */}

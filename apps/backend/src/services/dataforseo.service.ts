@@ -1,5 +1,5 @@
 import axios from "axios";
-import { env } from "../config/env";
+import { setting, settingInt } from "./settings.service";
 
 // Domain-level SEO metrics for the AI Score game. These describe the whole
 // domain (not just the homepage): DA/PA-style authority ranks + keyword data.
@@ -31,7 +31,25 @@ const EMPTY: DomainMetrics = {
 };
 
 function authHeader(): string {
-  return "Basic " + Buffer.from(`${env.DATAFORSEO_LOGIN}:${env.DATAFORSEO_PASSWORD}`).toString("base64");
+  return "Basic " + Buffer.from(`${setting("DATAFORSEO_LOGIN")}:${setting("DATAFORSEO_PASSWORD")}`).toString("base64");
+}
+
+// Remaining account balance (USD) via appendix/user_data — for the Settings page.
+export async function fetchAccountBalance(): Promise<{ balance: number | null; currency: string }> {
+  if (!setting("DATAFORSEO_LOGIN") || !setting("DATAFORSEO_PASSWORD")) return { balance: null, currency: "USD" };
+  try {
+    const { data } = await axios.get("https://api.dataforseo.com/v3/appendix/user_data", {
+      headers: { Authorization: authHeader() },
+      timeout: 12000,
+    });
+    const money = data?.tasks?.[0]?.result?.[0]?.money ?? {};
+    return {
+      balance: typeof money.balance === "number" ? money.balance : null,
+      currency: money.currency ?? "USD",
+    };
+  } catch {
+    return { balance: null, currency: "USD" };
+  }
 }
 
 async function post(path: string, body: unknown, timeout = 20_000): Promise<any> {
@@ -73,7 +91,7 @@ async function fetchRanks(domain: string, url: string): Promise<{ da: number | n
 async function fetchKeywordOverview(domain: string): Promise<{ keywordCount: number | null; organicTraffic: number | null }> {
   try {
     const data = await post("dataforseo_labs/google/domain_rank_overview/live", [
-      { target: domain, location_code: env.DATAFORSEO_LOCATION_CODE, language_code: env.DATAFORSEO_LANGUAGE_CODE },
+      { target: domain, location_code: settingInt("DATAFORSEO_LOCATION_CODE", 2840), language_code: setting("DATAFORSEO_LANGUAGE_CODE") },
     ]);
     const organic = data?.tasks?.[0]?.result?.[0]?.items?.[0]?.metrics?.organic ?? {};
     const num = (v: any) => (typeof v === "number" ? Math.round(v) : null);
@@ -103,10 +121,10 @@ async function fetchBacklinks(domain: string): Promise<{ referringDomains: numbe
 // Filters out the site itself and obvious non-competitors (social/directories).
 const NON_COMPETITORS = /(facebook|instagram|linkedin|twitter|x|youtube|pinterest|justdial|indiamart|wikipedia|google|amazon)\./i;
 export async function fetchCompetitors(domain: string, limit = 5): Promise<CompetitorLite[]> {
-  if (!env.DATAFORSEO_LOGIN || !env.DATAFORSEO_PASSWORD) return [];
+  if (!setting("DATAFORSEO_LOGIN") || !setting("DATAFORSEO_PASSWORD")) return [];
   try {
     const data = await post("dataforseo_labs/google/competitors_domain/live", [
-      { target: domain, location_code: env.DATAFORSEO_LOCATION_CODE, language_code: env.DATAFORSEO_LANGUAGE_CODE, limit: limit + 6 },
+      { target: domain, location_code: settingInt("DATAFORSEO_LOCATION_CODE", 2840), language_code: setting("DATAFORSEO_LANGUAGE_CODE"), limit: limit + 6 },
     ]);
     const items: any[] = data?.tasks?.[0]?.result?.[0]?.items ?? [];
     const self = domain.replace(/^www\./, "");
@@ -126,8 +144,8 @@ async function fetchTopKeywords(domain: string, limit = 10): Promise<string[]> {
     const data = await post("dataforseo_labs/google/ranked_keywords/live", [
       {
         target: domain,
-        location_code: env.DATAFORSEO_LOCATION_CODE,
-        language_code: env.DATAFORSEO_LANGUAGE_CODE,
+        location_code: settingInt("DATAFORSEO_LOCATION_CODE", 2840),
+        language_code: setting("DATAFORSEO_LANGUAGE_CODE"),
         limit,
         order_by: ["ranked_serp_element.serp_item.rank_group,asc"],
       },
@@ -144,7 +162,7 @@ async function fetchTopKeywords(domain: string, limit = 10): Promise<string[]> {
 }
 
 export async function fetchDomainMetrics(url: string): Promise<DomainMetrics> {
-  if (!env.DATAFORSEO_LOGIN || !env.DATAFORSEO_PASSWORD) return EMPTY;
+  if (!setting("DATAFORSEO_LOGIN") || !setting("DATAFORSEO_PASSWORD")) return EMPTY;
   const domain = toDomain(url);
   const [ranks, overview, backlinks, topKeywords] = await Promise.all([
     fetchRanks(domain, url),

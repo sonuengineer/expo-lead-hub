@@ -14,6 +14,7 @@ import { AuditLogPage } from "./pages/AuditLog";
 import { UsersPage } from "./pages/Users";
 import { AutomationPage } from "./pages/Automation";
 import { AccountPage } from "./pages/Account";
+import { SettingsPage, OWNER_EMAIL } from "./pages/Settings";
 import { PublicLeadForm } from "./pages/PublicLeadForm";
 import { WebsiteRoastPage } from "./pages/WebsiteRoast";
 import { ScoreGamePage } from "./pages/ScoreGame";
@@ -41,6 +42,13 @@ function RequireRole({ roles, children }: { roles: string[]; children: React.Rea
 }
 
 const ADMIN = ["ADMIN", "SUPER_ADMIN"];
+
+// Settings are locked to a single owner account — even other super admins can't enter.
+function RequireOwner({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user);
+  if (!user || (user.email || "").toLowerCase() !== OWNER_EMAIL.toLowerCase()) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
 
 export default function App() {
   return (
@@ -72,6 +80,7 @@ export default function App() {
           <Route path="ai/roast" element={<WebsiteRoastPage />} />
           <Route path="ai/history" element={<AnalysisHistoryPage />} />
           <Route path="account" element={<AccountPage />} />
+          <Route path="settings" element={<RequireOwner><SettingsPage /></RequireOwner>} />
           <Route path="qr-codes" element={<RequireRole roles={ADMIN}><QrCodesPage /></RequireRole>} />
           <Route path="forms" element={<RequireRole roles={ADMIN}><FormBuilderPage /></RequireRole>} />
           <Route path="sync" element={<RequireRole roles={ADMIN}><SyncPage /></RequireRole>} />

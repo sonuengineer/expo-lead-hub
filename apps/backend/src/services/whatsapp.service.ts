@@ -1,16 +1,16 @@
 import axios from "axios";
-import { env } from "../config/env";
+import { setting } from "./settings.service";
 
 // Thin client for the OpenWA self-hosted WhatsApp gateway (whatsapp-web.js /
 // baileys under the hood). Runs as a separate Docker service; we just POST to
 // its REST API. See https://github.com/rmyndharis/OpenWA
 export class WhatsAppService {
   private get baseUrl(): string | undefined {
-    return env.OPENWA_BASE_URL?.replace(/\/+$/, "");
+    return setting("OPENWA_BASE_URL")?.replace(/\/+$/, "") || undefined;
   }
 
   private get apiKey(): string | undefined {
-    return env.OPENWA_API_KEY;
+    return setting("OPENWA_API_KEY") || undefined;
   }
 
   // Normalize a phone number into a WhatsApp chat id, e.g. 919876543210@c.us

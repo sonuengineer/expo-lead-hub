@@ -96,7 +96,7 @@ export function PublicScoreGame() {
       <div className="min-h-screen bg-slate-50 p-4">
         <div className="mx-auto max-w-4xl">
           <ScoreReport data={analysis} />
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center print:hidden">
             <button
               onClick={() => {
                 setAnalysis(null);

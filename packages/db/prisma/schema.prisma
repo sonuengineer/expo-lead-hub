@@ -503,6 +503,21 @@ model BniMember {
 }
 
 // ═══════════════════════════════════════════
+// APP SETTINGS (editable integration keys — owner only)
+// ═══════════════════════════════════════════
+
+// Encrypted key/value overrides for integration credentials (Gemini, DataForSEO,
+// Resend, OpenWA, PageSpeed). Read via settings.service; overrides env at runtime.
+model AppSetting {
+  key       String   @id
+  value     String   @db.Text // AES-256-GCM encrypted
+  updatedBy String?  @map("updated_by")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("app_settings")
+}
+
+// ═══════════════════════════════════════════
 // ENGAGEMENT GAMES (played from a visitor's "extra link")
 // ═══════════════════════════════════════════
 

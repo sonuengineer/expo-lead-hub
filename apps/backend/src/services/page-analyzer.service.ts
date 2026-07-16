@@ -1,5 +1,5 @@
 import axios from "axios";
-import { env } from "../config/env";
+import { setting } from "./settings.service";
 
 export interface PageScores {
   performance: number | null;
@@ -81,7 +81,7 @@ class PageSpeedAnalyzer implements PageAnalyzer {
     const cats = ["performance", "seo", "accessibility", "best-practices"]
       .map((c) => `category=${c}`)
       .join("&");
-    const key = env.PAGESPEED_API_KEY ? `&key=${env.PAGESPEED_API_KEY}` : "";
+    const key = setting("PAGESPEED_API_KEY") ? `&key=${setting("PAGESPEED_API_KEY")}` : "";
     const requestUrl = `${this.endpoint}?url=${encodeURIComponent(url)}&strategy=${strategy}&${cats}${key}`;
     const { data } = await axios.get(requestUrl, { timeout: 70000 });
     return data;
@@ -151,7 +151,7 @@ class PageSpeedAnalyzer implements PageAnalyzer {
 // on-page score + meta, and keeps the free screenshot for the image. Activated
 // only when DATAFORSEO_LOGIN/PASSWORD are set; falls back to PSI on any error.
 class DataForSeoAnalyzer implements PageAnalyzer {
-  private auth = Buffer.from(`${env.DATAFORSEO_LOGIN}:${env.DATAFORSEO_PASSWORD}`).toString("base64");
+  private auth = Buffer.from(`${setting("DATAFORSEO_LOGIN")}:${setting("DATAFORSEO_PASSWORD")}`).toString("base64");
 
   async analyze(url: string): Promise<PageCapture> {
     try {
@@ -197,9 +197,9 @@ class DataForSeoAnalyzer implements PageAnalyzer {
 //  - "dataforseo" → DataForSEO (requires creds; falls back to PSI on error)
 //  - "auto"       → DataForSEO when creds are set, else PSI
 export function getPageAnalyzer(): PageAnalyzer {
-  const hasCreds = Boolean(env.DATAFORSEO_LOGIN && env.DATAFORSEO_PASSWORD);
-  if (env.SEO_PROVIDER === "pagespeed") return new PageSpeedAnalyzer();
-  if (env.SEO_PROVIDER === "dataforseo") {
+  const hasCreds = Boolean(setting("DATAFORSEO_LOGIN") && setting("DATAFORSEO_PASSWORD"));
+  if (setting("SEO_PROVIDER") === "pagespeed") return new PageSpeedAnalyzer();
+  if (setting("SEO_PROVIDER") === "dataforseo") {
     if (!hasCreds) {
       console.warn("SEO_PROVIDER=dataforseo but DATAFORSEO creds are missing — using PageSpeed.");
       return new PageSpeedAnalyzer();
@@ -220,7 +220,7 @@ export function getLighthouseAnalyzer(): PageAnalyzer {
 // True when DataForSEO domain metrics (DA/PA/keywords) should be fetched.
 export function dataForSeoEnabled(): boolean {
   return (
-    env.SEO_PROVIDER !== "pagespeed" &&
-    Boolean(env.DATAFORSEO_LOGIN && env.DATAFORSEO_PASSWORD)
+    setting("SEO_PROVIDER") !== "pagespeed" &&
+    Boolean(setting("DATAFORSEO_LOGIN") && setting("DATAFORSEO_PASSWORD"))
   );
 }
